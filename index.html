@@ -51,9 +51,10 @@
 <script>
   const P = new URLSearchParams(location.search);
   const CFG = window.LED_CONFIG || {};
-  const API = P.get('api') || CFG.api || '', TOKEN = P.get('token') || CFG.token || '';
+  const API = P.get('api') || CFG.api || '', TOKEN = P.get('token') || CFG.token || (() => { try { return localStorage.getItem('led_read_tok') || ''; } catch (e) { return ''; } })();
+  if (P.get('token')) { try { localStorage.setItem('led_read_tok', P.get('token')); } catch (e) {} }
   const POLL_MS = 10 * 1000;               // 관리자 설정(ON/OFF·단독 송출) 확인 주기
-  const DATA_POLL_MS = 60 * 60 * 1000;     // 지표 데이터 확인 주기: 1시간 (일별 지표)
+  const DATA_POLL_MS = 5 * 60 * 1000;      // 지표 데이터 확인 주기: 5분 (시트 값이 바뀌면 바로 반영)
 
   /* 지표 데이터: Apps Script(?api=)에서 받아 카드·그래프를 다시 그림. 없으면 데모 데이터 */
   const LOGO = document.querySelector('image').getAttribute('href');

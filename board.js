@@ -63,6 +63,7 @@
   function texts(spec) {
     const ovr = (window.LAYOUT_OVR && window.LAYOUT_OVR[spec.key]) || {};
     const out = [];
+    const hi = spec.hi != null ? spec.hi : (spec.active || 0);
     const add = (id, t, extra) => {
       const base = Object.assign({}, T0[id] || {}, ovr[id] || {}, extra || {});
       out.push(Object.assign({ id, t }, base));
@@ -74,10 +75,13 @@
       const isActive = i === spec.active;
       add(id, t, Object.assign(spec.listBold ? { w: 700, fill: '#78888C', fs: 11.5 } : {}, isActive ? { fill: ORANGE, w: 700 } : {}));
     });
-    (spec.cardTexts || []).forEach(c => add(c.id, c.t, c.segs ? { segs: c.segs } : {}));
+    (spec.cardTexts || []).forEach(c => {
+      const m = /^c(\d)a$/.exec(c.id);
+      add(c.id, c.t, Object.assign(c.segs ? { segs: c.segs } : {}, m ? (+m[1] - 1 === hi ? { fill: ORANGE, w: 700 } : { fill: '#222222', w: 400 }) : {}));
+    });
     (spec.cards || []).forEach((c, i) => {
       const k = 'c' + (i + 1);
-      if (c.v != null) { add(k + 't', c.t, i === 0 ? { fill: ORANGE, w: 700 } : {}); add(k + 'n', c.v); add(k + 'd', c.d); }
+      if (c.v != null) { add(k + 't', c.t, i === hi ? { fill: ORANGE, w: 700 } : { fill: '#222222', w: 500 }); add(k + 'n', c.v); add(k + 'd', c.d); }
       else (c.lines || []).forEach(ln => add(ln.id, ln.t, ln.extra));      // 글자만 있는 카드(10~12번)
     });
     add('pt', spec.title); add('pu', '*Last Updated ' + spec.updated); add('pd', spec.desc);
@@ -111,7 +115,9 @@
     s += `<rect x="${X(p.x0)}" y="${Y(p.y0)}" width="${L(p.x1 - p.x0)}" height="${L(p.y1 - p.y0)}" fill="#000000"/>`;
     s += chartSvg || '';
     s += figures(spec.key);
-    BASE.cards.forEach(c => {
+    const hiCard = spec.hi != null ? spec.hi : (spec.active || 0);
+    BASE.cards.forEach((c0, ci) => {
+      const c = Object.assign({}, c0, ci === hiCard ? { bw: 4, bc: ORANGE } : { bw: 3, bc: '#FFC4A9' });
       const h = c.bw / 2;
       s += `<rect x="${X(c.x0 + h)}" y="${Y(c.y0 + h)}" width="${L(c.x1 - c.x0 - c.bw)}" height="${L(c.y1 - c.y0 - c.bw)}" rx="${L(4)}" fill="#ffffff" stroke="${c.bc}" stroke-width="${L(c.bw)}"/>`;
     });

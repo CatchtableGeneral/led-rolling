@@ -132,7 +132,7 @@
       const h = c.bw / 2;
       s += `<rect x="${X(c.x0 + h)}" y="${Y(c.y0 + h)}" width="${L(c.x1 - c.x0 - c.bw)}" height="${L(c.y1 - c.y0 - c.bw)}" rx="${L(4)}" fill="#ffffff" stroke="${c.bc}" stroke-width="${L(c.bw)}"/>`;
     });
-    const dyn = { pu: `*Last Updated ${D.updated}, 일(日) 단위 업데이트 지표` };
+    const dyn = { pu: `*Last Updated ${D.updated}, 일(日) 단위 업데이트 지표`, pt: `${D.M}월 목표달성현황 [‘예약’ 전체 매장 수]` };
     LAYOUT.texts.forEach(o => {
       const m = /^c(\d)([tnd])$/.exec(o.id);
       if (m && m[2] === 'd') return;                               // 전일 대비는 숫자 뒤에 이어서 그림

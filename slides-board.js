@@ -50,19 +50,22 @@
     Object.assign({ t: 'DUV' }, P.dayCard('DAU')),
   ];
 
-  /* 고정 축은 원본 슬라이드와 같게 두되, 데이터·목표가 넘으면 간격 단위로 늘림 */
-  function axis(max, step, vals) {
-    const top = Math.max(...vals.filter(v => v != null), 0);
-    while (top > max) max += step;
-    return { yMax: max, yStep: step };
+  /* 축은 데이터(와 목표선)에 맞춰 자동 계산: 눈금 칸 수 n은 고정, 칸 간격은 깔끔한 정수로 골라 값이 잘리지 않게 함 */
+  function axis(n, vals) {
+    const top = Math.max(...vals.filter(v => v != null), 0) * 1.04;
+    for (let p = 0; p < 12; p++) for (const m of [1, 2, 2.5, 5]) {
+      const s = m * Math.pow(10, p);
+      if (Number.isInteger(s) && s * n >= top) return { yMax: s * n, yStep: s };
+    }
+    return { yMax: top, yStep: top / n };
   }
 
   /* 일별 막대 차트의 공통 설정. 슬라이드마다 geometry 로 덮어씀 */
   function dailyBars(P, o) {
-    const ax = axis(o.yMax, o.yStep, o.series.concat(o.goalVals || []));
+    const ax = axis(o.n, o.series.concat(o.goalVals || []));
     return B.bars(Object.assign({
       cats: P.cats, yFmt: v => f(v), valFmt: v => f(v),
-      gridColor: v => ((o.brightFn ? o.brightFn(v) : Math.abs(v - ax.yMax * 0.75) < 1e-6) ? '#bdbdbd' : '#2a2a2a'),
+      gridColor: v => ((o.brightFn ? o.brightFn(v, ax) : Math.abs(v - ax.yMax * 0.75) < 1e-6) ? '#bdbdbd' : '#2a2a2a'),
     }, o.geo, ax, { series: o.series, goal: o.goal, legend: o.legend, valPos: o.valPos, valFs: o.valFs }));
   }
 
@@ -77,53 +80,53 @@
       key: 's03', head: HEAD_A, list: LIST_A, active: 1, cards: cardsA,
       title: P => `${P.M}월 목표달성현황 [아웃바운드 신규 가맹 수]`,
       desc: '[아웃바운드 신규매장 수]는 우리가 먼저 찾아가 설득해 함께하게 된 신규 매장의 수예요. 직접 만든 성장의 결과로, 우리의 실행력이 담겨 있습니다.',
-      chart: P => dailyBars(P, { yMax: 200, yStep: 50, series: P.col('누적 아웃바운드 신규 매장수'), geo: GEO_A, valPos: 'center', valFs: 7,
+      chart: P => dailyBars(P, { n: 4, series: P.col('누적 아웃바운드 신규 매장수'), geo: GEO_A, valPos: 'center', valFs: 7,
         legend: LEG([['ACTUAL', ORANGE], ['GOAL', '#bdbdbd', 'dot']], 669) }),
     },
     inbound: {
       key: 's04', head: HEAD_A, list: LIST_A, active: 2, cards: cardsA,
       title: P => `${P.M}월 목표달성현황 [인바운드 신규 가맹 수]`,
       desc: '[인바운드 신규매장 수]는 먼저 찾아와 도입을 결정한 신규 매장의 수예요. 우리가 만드는 캐치테이블의 브랜드 신뢰와 인지도를 보여주는 자발적 성장의 지표입니다.',
-      chart: P => dailyBars(P, { yMax: 200, yStep: 50, series: P.col('누적 인바운드 신규 매장수'), geo: GEO_A, valPos: 'center', valFs: 7,
+      chart: P => dailyBars(P, { n: 4, series: P.col('누적 인바운드 신규 매장수'), geo: GEO_A, valPos: 'center', valFs: 7,
         legend: LEG([['ACTUAL', ORANGE], ['GOAL', '#bdbdbd', 'dot']], 669) }),
     },
     defense: {
       key: 's05', head: HEAD_A, list: LIST_A, active: 3, cards: cardsA, weekly: true,
       title: P => `${P.M}월 목표달성현황 [해지 방어율]`,
       desc: '[해지 방어율]은 가맹 해지를 원하는 매장을 얼마나 잘 지켜내고 있는지를 보여주는 지표예요. 안정적인 매장 수 성장을 지속시키는 기반이 됩니다.',
-      chart: P => B.bars({
+      chart: P => { const rs = Array.from({ length: 12 }, (_, i) => (P.rates[i] == null ? null : P.rates[i] * 100)), ax = axis(4, rs); return B.bars({
         cats: Array.from({ length: 12 }, (_, i) => `${i + 1}월`), x0: 364.5, pitch: 63.97, barW: 41, zeroY: 290, topY: 153,
-        gx0: 346, gx1: 1100, yLabX: 338, yLabFs: 5.4, xLabY: 302.8, xLabFs: 5.2, yMax: 80, yStep: 20,
-        yFmt: v => v + '%', valFmt: v => v.toFixed(1) + '%', valPos: 'center', valFs: 6.2, gridColor: v => (v === 60 ? '#bdbdbd' : '#2a2a2a'),
-        series: Array.from({ length: 12 }, (_, i) => (P.rates[i] == null ? null : P.rates[i] * 100)),
+        gx0: 346, gx1: 1100, yLabX: 338, yLabFs: 5.4, xLabY: 302.8, xLabFs: 5.2, yMax: ax.yMax, yStep: ax.yStep,
+        yFmt: v => v + '%', valFmt: v => v.toFixed(1) + '%', valPos: 'center', valFs: 6.2, gridColor: v => (Math.abs(v - ax.yMax * 0.75) < 1e-6 ? '#bdbdbd' : '#2a2a2a'),
+        series: rs,
         goal: { values: Array(12).fill(50), line: true, labels: 'all', fs: 5.4, dy: 4, r: 1.3, fmt: v => v + '%' },
         legend: LEG([['방어율(%)', ORANGE], ['GOAL(%)', '#bdbdbd', 'dot']], 665),
-      }),
+      }); },
     },
     visits: {
       key: 's06', head: HEAD_B, list: LIST_B, active: 0, cards: cardsB,
       title: P => `${P.M}월 목표달성현황 [예약 방문 수]`, desc: DESC_VIS,
-      chart: P => dailyBars(P, { yMax: 800000, yStep: 200000, series: P.col('누적 캐치 방문수'), goalVals: P.goals.visits, geo: GEO_B, valPos: 'base', valFs: 4.4,
+      chart: P => dailyBars(P, { n: 4, series: P.col('누적 캐치 방문수'), goalVals: P.goals.visits, geo: GEO_B, valPos: 'base', valFs: 4.4,
         goal: { values: P.goals.visits || [], line: true, labels: 'all', fs: 4.4, dy: 3.2 }, legend: LEG([['ACTUAL', ORANGE], ['GOAL', '#bdbdbd', 'dot']], 669) }),
     },
     regs: {
       key: 's07', head: HEAD_B, list: LIST_B, active: 1, cards: cardsB,
       title: P => `${P.M}월 목표달성현황 [예약 등록 수]`, desc: DESC_VIS,
-      chart: P => dailyBars(P, { yMax: 1000000, yStep: 250000, series: P.col('누적 캐치 등록수'), geo: GEO_B, valPos: 'base', valFs: 4.4,
+      chart: P => dailyBars(P, { n: 4, series: P.col('누적 캐치 등록수'), geo: GEO_B, valPos: 'base', valFs: 4.4,
         legend: LEG([['ACTUAL', ORANGE]], 685) }),
     },
     remote: {
       key: 's08', head: HEAD_B, list: LIST_B, active: 2, cards: cardsB,
       title: P => `${P.M}월 목표달성현황 [원격대기 방문 수]`,
       desc: '[원격대기 방문 수]는 캐치테이블 원격대기를 통해 실제 방문까지 이어진 누적 수예요. ‘줄 서는 경험’도 우리 안에서 더 편하게 바뀌고 있다는 걸 보여줍니다.',
-      chart: P => dailyBars(P, { brightFn: v => v > 0 && v % 400000 === 0, yMax: 1200000, yStep: 200000, series: P.col('누적 원격대기 방문수'), goalVals: P.goals.remote, geo: Object.assign({}, GEO_B, { topY: 155 }), valPos: 'base', valFs: 4.4,
+      chart: P => dailyBars(P, { brightFn: (v, ax) => v > 0 && Math.round(v / ax.yStep) % 2 === 0, n: 6, series: P.col('누적 원격대기 방문수'), goalVals: P.goals.remote, geo: Object.assign({}, GEO_B, { topY: 155 }), valPos: 'base', valFs: 4.4,
         goal: { values: P.goals.remote || [], line: true, labels: 'all', fs: 4.4, dy: 3.2 }, legend: LEG([['ACTUAL', ORANGE], ['GOAL', '#bdbdbd', 'dot']], 669) }),
     },
     duv: {
       key: 's09', head: HEAD_B, list: LIST_B, active: 3, cards: cardsB,
       title: P => `${P.M}월 목표달성현황 [DUV]`,
       desc: '[Daily Unique Visitors]는 매일 캐치테이블을 찾아와 ‘무엇을 먹을까?’를 시작하는 고객의 수예요. 더 편리하고 즐거운 사용 경험을 만들수록 이 수치는 커집니다.',
-      chart: P => dailyBars(P, { yMax: 800000, yStep: 200000, series: P.col('DAU'), goalVals: Array(P.days).fill(668000), geo: Object.assign({}, GEO_B, { topY: 154.5 }), valPos: 'center', valFs: 4.4,
+      chart: P => dailyBars(P, { n: 4, series: P.col('DAU'), goalVals: Array(P.days).fill(668000), geo: Object.assign({}, GEO_B, { topY: 154.5 }), valPos: 'center', valFs: 4.4,
         goal: { values: Array(P.days).fill(668000), line: true, labels: 'last', fs: 4.6, dy: 3.2, r: 0.9, w: 0.7 }, legend: LEG([['DUV', ORANGE], ['GOAL', '#bdbdbd', 'dot']], 681) }),
     },
   };

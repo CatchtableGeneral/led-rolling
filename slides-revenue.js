@@ -47,17 +47,17 @@
     const v = vals.filter(x => x != null);
     if (!v.length) return { yMin: 0, yMax: intervals * minStep, yStep: minStep };
     const lo = Math.min(...v), hi = Math.max(...v);
-    const steps = []; for (let p = 0; p < 12; p++) [1, 2, 2.5, 5].forEach(m => steps.push(m * Math.pow(10, p)));
+    const steps = []; for (let p = 0; p < 12; p++) [1, 2, 2.5, 5].forEach(m => { const s = m * Math.pow(10, p); if (Number.isInteger(s)) steps.push(s); });
     for (const st of steps) {
       if (st < minStep) continue;
       const base = Math.floor(lo / st) * st;
-      if (base + st * intervals >= hi) return { yMin: base, yMax: base + st * intervals, yStep: st };
+      if (base + st * intervals >= hi + (hi - base) * 0.04) return { yMin: base, yMax: base + st * intervals, yStep: st };
     }
     return { yMin: 0, yMax: hi, yStep: hi / intervals };
   }
 
   const dailyChart = (P, o) => {
-    const ax = o.axis || niceAxis(o.series, o.intervals, o.minStep || 1);
+    const ax = niceAxis(o.series.concat(o.goal || []), o.intervals, 1);
     const plot = o.plot, n = P.days, pitch = (plot.x1 - plot.x0 - 8) / 30;
     return B.lineChart(Object.assign({ cats: P.cats, catX: i => plot.x0 + 4 + i * pitch, rotate: true, xLabDy: 6, xLabFs: 3.6, valFs: 3.6, yLabFs: 4.4 }, o, ax));
   };
@@ -80,9 +80,9 @@
       title: P => `${P.M}월 목표달성현황 [고가 광고 참여 매장 수]`, active: 0,
       chart: P => {
         let s = dailyChart(P, { title: '예약 - 광고 참여 매장 수', tx: 424.4, ty: 151, plot: { x0: 315, x1: 534, y0: 169.4, y1: 301.5 }, series: P.col('누적 예약 고가 광고 참여 매장수'),
-          axis: { yMin: 0, yMax: 800, yStep: 200 }, yFmt: v => f(v), valFmt: v => f(v) });
+          intervals: 4, yFmt: v => f(v), valFmt: v => f(v) });
         s += dailyChart(P, { title: '대기 - 광고 참여 매장 수', tx: 710, ty: 151, plot: { x0: 584, x1: 812.7, y0: 169.4, y1: 301.5 }, series: P.col('누적 대기 고가 광고 참여 매장수'),
-          axis: { yMin: 0, yMax: 50, yStep: 10 }, yFmt: v => f(v), valFmt: v => f(v) });
+          intervals: 5, yFmt: v => f(v), valFmt: v => f(v) });
         s += B.text(980.6, 151, '브랜드(기업) 광고 유치', 10.5, '#ffffff', 'middle', 700);
         const a = window.BOARD_ASSETS && window.BOARD_ASSETS.brands;
         s += a ? `<image href="${a}" x="${B.X(849.6)}" y="${B.Y(159)}" width="${B.L(262.4)}" height="${B.L(164)}" preserveAspectRatio="xMidYMid slice"/>`
@@ -105,12 +105,12 @@
       title: P => `${P.M}월 목표달성현황 [자동결제]`, active: 2,
       chart: P => {
         let s = dailyChart(P, { title: '자동결제 매장 수', tx: 428, ty: 151, plot: { x0: 313, x1: 526, y0: 169.4, y1: 301.5 }, series: P.col('누적 캐치 자동결제 매장수'),
-          axis: { yMin: 1000, yMax: 4000, yStep: 1000 }, yFmt: v => f(v), valFmt: v => f(v) });
+          intervals: 3, yFmt: v => f(v), valFmt: v => f(v) });
         s += dailyChart(P, { title: '자동결제 등록 수', tx: 683, ty: 151, plot: { x0: 582, x1: 816.7, y0: 169.4, y1: 301.5 }, series: P.col('누적 캐치 자동결제 등록수'),
-          axis: { yMin: 0, yMax: 150000, yStep: 50000 }, yFmt: v => f(v), valFmt: v => f(v) });
+          intervals: 3, yFmt: v => f(v), valFmt: v => f(v) });
         const rate = P.col('자동결제 방문 대비 결제율%').map(v => v == null ? null : v * 100);
         s += dailyChart(P, { title: '데일리 자동결제 방문 대비 결제율', tx: 955, ty: 151, plot: { x0: 834, x1: 1051, y0: 169.4, y1: 292 }, series: rate, goal: Array(P.days).fill(65),
-          axis: { yMin: 40, yMax: 80, yStep: 10 }, yFmt: v => v + '%', valFmt: v => v.toFixed(1) + '%', legend: { x: 905, y: 318, items: [['ACTUAL', ORANGE], ['GOAL', '#b5b5b5']] } });
+          intervals: 4, yFmt: v => v + '%', valFmt: v => v.toFixed(1) + '%', legend: { x: 905, y: 318, items: [['ACTUAL', ORANGE], ['GOAL', '#b5b5b5']] } });
         return s;
       },
     },
@@ -119,7 +119,7 @@
   window.renderRevenueSlide = function (name, el, logoHref, data) {
     const S = SLIDES[name], P = prep(data);
     if (!S || !P) return;
-    const spec = { key: S.key, heading: HEAD_C, list: LIST_C, active: S.active, listBold: true, cardTexts: cardTexts(P),
+    const spec = { key: S.key, heading: HEAD_C, list: LIST_C, active: S.active, hi: S.active + 1, listBold: true, cardTexts: cardTexts(P),
       title: S.title(P), updated: `${P.updated}, 일(日) 단위 업데이트 지표`, desc: DESC_C };
     el.innerHTML = B.render(logoHref, spec, S.chart(P));
   };
