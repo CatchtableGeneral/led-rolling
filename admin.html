@@ -59,7 +59,7 @@
   <div class="muted">카페테리아 대형 LED · 변경은 저장하면 약 10초 안에 화면에 반영됩니다</div>
 
   <div class="card hide" id="auth">
-    <div class="muted" style="margin-bottom:8px">관리자 토큰을 입력하세요 (이 브라우저 탭에만 임시 저장)</div>
+    <div class="muted" style="margin-bottom:8px">관리자 토큰을 입력하세요 (이 브라우저에 저장되어 다음부터는 묻지 않습니다)</div>
     <input type="password" id="tok" placeholder="ADMIN TOKEN" autocomplete="off">
     <div class="bar"><button class="primary" id="tokOk">확인</button></div>
   </div>
@@ -100,10 +100,11 @@
 <script>
   const P = new URLSearchParams(location.search);
   const CFG = window.LED_CONFIG || {};
-  const API = P.get('api') || CFG.api || '', RTOKEN = P.get('token') || CFG.token || '';
+  const API = P.get('api') || CFG.api || '', RTOKEN = P.get('token') || CFG.token || (() => { try { return localStorage.getItem('led_read_tok') || ''; } catch (e) { return ''; } })();
+  if (P.get('token')) { try { localStorage.setItem('led_read_tok', P.get('token')); } catch (e) {} }
   const $ = s => document.querySelector(s);
   let cfg = null, dirty = false;
-  const adminTok = () => { if (CFG.admin) return CFG.admin; try { return sessionStorage.getItem('led_admin_tok') || ''; } catch (e) { return ''; } };
+  const adminTok = () => { if (CFG.admin) return CFG.admin; try { return localStorage.getItem('led_admin_tok') || sessionStorage.getItem('led_admin_tok') || ''; } catch (e) { return ''; } };
 
   const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   function periodNote(s) {
@@ -257,7 +258,7 @@
 
   $('#save').onclick = save;
   $('#unsolo').onclick = () => { cfg.solo = null; dirty = true; render(); };
-  $('#tokOk').onclick = () => { try { sessionStorage.setItem('led_admin_tok', $('#tok').value.trim()); } catch (e) {} $('#auth').classList.add('hide'); msg(''); };
+  $('#tokOk').onclick = () => { try { localStorage.setItem('led_admin_tok', $('#tok').value.trim()); } catch (e) { try { sessionStorage.setItem('led_admin_tok', $('#tok').value.trim()); } catch (e2) {} } $('#auth').classList.add('hide'); msg(''); };
   addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 
   load(); pv();
