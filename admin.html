@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>LED 송출 관리</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root { --bg:#f6f5f6; --card:#fff; --ink:#111; --sub:#6b6b70; --line:#e4e2e5; --brand:#FF3D00; --off:#c9c6cb; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#141416; --card:#1d1d20; --ink:#f3f2f4; --sub:#9a98a0; --line:#2c2c30; --off:#4a484e; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:24px 16px 80px; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  .muted { color:var(--sub); font-size:13px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-top:16px; }
+  .preview { aspect-ratio:3.4/1; width:100%; border:0; border-radius:10px; background:#000; display:block; }
+  .status { display:flex; gap:8px; align-items:center; margin-top:12px; font-size:14px; flex-wrap:wrap; }
+  .pill { padding:3px 10px; border-radius:999px; font-size:12px; font-weight:700; background:#e9e7ea; color:#444; }
+  .pill.solo { background:var(--brand); color:#fff; }
+  .row { display:grid; grid-template-columns:auto 1fr auto auto auto; gap:12px; align-items:center;
+    padding:12px 0; border-top:1px solid var(--line); }
+  .row:first-child { border-top:0; }
+  .row.off .name { color:var(--sub); text-decoration:line-through; }
+  .name { font-weight:600; }
+  .arrows { display:flex; flex-direction:column; gap:2px; }
+  button { font:inherit; cursor:pointer; }
+  .arrows button { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:6px;
+    width:28px; height:20px; font-size:10px; line-height:1; padding:0; }
+  .arrows button:disabled { opacity:.3; cursor:default; }
+  .sw { position:relative; width:46px; height:26px; border-radius:999px; border:0; background:var(--off); transition:.2s; }
+  .sw::after { content:''; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; transition:.2s; }
+  .sw.on { background:var(--brand); } .sw.on::after { left:23px; }
+  .sec { width:64px; padding:6px 8px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--ink); font:inherit; text-align:right; }
+  .solo-btn { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:8px; padding:7px 12px; font-size:13px; font-weight:600; }
+  .solo-btn.active { background:var(--brand); border-color:var(--brand); color:#fff; }
+  .bar { display:flex; gap:8px; align-items:center; margin-top:14px; flex-wrap:wrap; }
+  .primary { border:0; background:var(--brand); color:#fff; border-radius:10px; padding:10px 18px; font-weight:700; }
+  .ghost { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:10px; padding:10px 14px; }
+  #msg { font-size:13px; } #msg.err { color:#d92d20; } #msg.ok { color:#1a7f37; }
+  #auth input { padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--ink); font:inherit; width:100%; }
+  .period { margin-top:6px; font-weight:400; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .period input[type=date] { padding:3px 6px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink); font:inherit; font-size:12px; }
+  .del { margin-left:auto; border:1px solid var(--line); background:var(--card); color:#d92d20; border-radius:6px; padding:3px 10px; font-size:12px; }
+  .up-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+  .up-grid label { font-size:12px; color:var(--sub); display:block; margin-bottom:4px; }
+  .up-grid input { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--ink); font:inherit; }
+  #upPrev { width:100%; aspect-ratio:3.4/1; background:#000; border-radius:8px; object-fit:contain; display:block; margin-top:10px; }
+  #upWarn { font-size:13px; margin-top:8px; color:#b54708; }
+  .hide { display:none !important; }
+  @media (max-width:520px) { .row { grid-template-columns:auto 1fr auto; } .row .sec-wrap, .row .solo-btn { grid-column:2 / -1; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>LED 송출 관리</h1>
+  <div class="muted">카페테리아 대형 LED · 변경은 저장하면 약 10초 안에 화면에 반영됩니다</div>
+
+  <div class="card hide" id="auth">
+    <div class="muted" style="margin-bottom:8px">관리자 토큰을 입력하세요 (이 브라우저 탭에만 임시 저장)</div>
+    <input type="password" id="tok" placeholder="ADMIN TOKEN" autocomplete="off">
+    <div class="bar"><button class="primary" id="tokOk">확인</button></div>
+  </div>
+
+  <div class="card">
+    <div class="muted" style="margin-bottom:8px">현재 송출 화면</div>
+    <iframe class="preview" id="pv" title="송출 미리보기"></iframe>
+    <div class="status"><span class="pill" id="mode">-</span><span id="modeTxt" class="muted"></span></div>
+  </div>
+
+  <div class="card">
+    <div id="list"></div>
+    <div class="bar">
+      <button class="primary" id="save">저장</button>
+      <button class="ghost" id="unsolo">단독 송출 해제</button>
+      <span id="msg"></span>
+    </div>
+  </div>
+  <div class="card">
+    <div style="font-weight:700">화면 추가 (이미지)</div>
+    <div class="muted" style="margin-top:4px">가로세로 비율 3.4:1(예: 3400×1000)로 만든 PNG·JPG·WEBP, 8MB 이하. 올리면 위 목록 맨 아래에 추가됩니다.</div>
+    <input type="file" id="upFile" accept="image/png,image/jpeg,image/webp" style="margin-top:10px">
+    <img id="upPrev" class="hide" alt="미리보기">
+    <div id="upWarn"></div>
+    <div class="up-grid">
+      <div><label>이름</label><input id="upName" maxlength="60" placeholder="예: 11월 사내 행사 안내"></div>
+      <div><label>노출 시간(초)</label><input id="upSec" type="number" min="3" max="600" value="12"></div>
+      <div><label>노출 시작일 (선택)</label><input id="upStart" type="date"></div>
+      <div><label>노출 종료일 (선택)</label><input id="upEnd" type="date"></div>
+    </div>
+    <div class="bar"><button class="primary" id="upGo" disabled>올리기</button><span id="upMsg" class="muted"></span></div>
+  </div>
+</main>
+
+<script src="config.js"></script>
+<script src="config.local.js" onerror="this.remove()"></script>
+<script src="slides.js"></script>
+<script>
+  const P = new URLSearchParams(location.search);
+  const CFG = window.LED_CONFIG || {};
+  const API = P.get('api') || CFG.api || '', RTOKEN = P.get('token') || CFG.token || '';
+  const $ = s => document.querySelector(s);
+  let cfg = null, dirty = false;
+  const adminTok = () => { if (CFG.admin) return CFG.admin; try { return sessionStorage.getItem('led_admin_tok') || ''; } catch (e) { return ''; } };
+
+  const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  function periodNote(s) {
+    if (!s.start && !s.end) return '· 기간 제한 없음';
+    const t = window.todayStr();
+    if (s.start && t < s.start) return '· 시작 전 (대기 중)';
+    if (s.end && t > s.end) return '· 기간 종료 (송출 안 됨)';
+    return '· 노출 중';
+  }
+  function msg(t, cls) { const m = $('#msg'); m.textContent = t || ''; m.className = cls || ''; }
+
+  async function load() {
+    try {
+      if (!API) cfg = JSON.parse(localStorage.getItem('led_config'));
+      else {
+        const r = await fetch(API + (API.includes('?') ? '&' : '?') + 'action=config&token=' + encodeURIComponent(RTOKEN) + '&t=' + Date.now(), { cache: 'no-store' });
+        const j = await r.json();
+        if (j.error) throw new Error(j.error);
+        cfg = j;
+      }
+    } catch (e) { if (API) msg('설정을 불러오지 못했습니다: ' + e.message, 'err'); }
+    cfg = window.normalizeConfig(cfg);
+    render();
+  }
+
+  function move(i, d) { const a = cfg.slides; [a[i], a[i + d]] = [a[i + d], a[i]]; dirty = true; render(); }
+
+  function toggle(i) {
+    const s = cfg.slides[i];
+    // 전부 꺼지는 것 방지: 마지막 ON은 끌 수 없음
+    if (s.on && cfg.slides.filter(x => x.on).length === 1) { msg('최소 1장은 켜져 있어야 합니다.', 'err'); return; }
+    s.on = !s.on;
+    if (!s.on && cfg.solo === s.id) cfg.solo = null;
+    dirty = true; render();
+  }
+
+  function setSolo(id) { cfg.solo = cfg.solo === id ? null : id; dirty = true; render(); }
+
+  function render() {
+    const meta = Object.fromEntries(window.SLIDES.map(s => [s.id, s]));
+    $('#list').innerHTML = cfg.slides.map((s, i) => `
+      <div class="row ${s.on ? '' : 'off'}">
+        <div class="arrows">
+          <button ${i === 0 ? 'disabled' : ''} onclick="move(${i},-1)" aria-label="위로">▲</button>
+          <button ${i === cfg.slides.length - 1 ? 'disabled' : ''} onclick="move(${i},1)" aria-label="아래로">▼</button>
+        </div>
+        <div class="name">${i + 1}. ${s.type ? '🖼 ' + esc(s.name) : meta[s.id].name}
+          ${s.type ? `<div class="period muted">노출 기간
+            <input type="date" value="${s.start || ''}" onchange="cfg.slides[${i}].start=this.value;dirty=true;render()"> ~
+            <input type="date" value="${s.end || ''}" onchange="cfg.slides[${i}].end=this.value;dirty=true;render()">
+            <span>${periodNote(s)}</span>
+            <button class="del" onclick="removeImage(${i})">삭제</button></div>` : ''}
+        </div>
+        <div class="sec-wrap"><input class="sec" type="number" min="3" max="600" value="${s.sec}"
+          onchange="cfg.slides[${i}].sec=Math.max(3,+this.value||3);dirty=true;render()"> <span class="muted">초</span></div>
+        <button class="solo-btn ${cfg.solo === s.id ? 'active' : ''}" onclick="setSolo('${s.id}')">${cfg.solo === s.id ? '단독 송출 중' : '이것만 송출'}</button>
+        <button class="sw ${s.on ? 'on' : ''}" onclick="toggle(${i})" role="switch" aria-checked="${s.on}" aria-label="${s.type ? esc(s.name) : meta[s.id].name} 송출"></button>
+      </div>`).join('');
+    const n = cfg.slides.filter(s => s.on).length;
+    const soloS = cfg.solo && cfg.slides.find(x => x.id === cfg.solo);
+    const solo = soloS && { name: soloS.type ? soloS.name : meta[soloS.id].name };
+    $('#mode').textContent = solo ? '단독 송출' : (n > 1 ? '순환 송출' : '고정 송출');
+    $('#mode').className = 'pill' + (solo ? ' solo' : '');
+    $('#modeTxt').textContent = solo ? solo.name + ' 한 장만 계속 나갑니다' : `켜진 슬라이드 ${n}장을 순서대로 보여줍니다`;
+    $('#unsolo').classList.toggle('hide', !cfg.solo);
+    $('#save').textContent = dirty ? '저장 (변경됨)' : '저장';
+  }
+
+  async function save() {
+    cfg.updatedAt = Date.now();
+    try {
+      if (!API) localStorage.setItem('led_config', JSON.stringify(cfg));
+      else {
+        if (!adminTok()) { $('#auth').classList.remove('hide'); msg('관리자 토큰이 필요합니다.', 'err'); return; }
+        const r = await fetch(API, { method: 'POST', body: JSON.stringify({ action: 'save', token: adminTok(), config: cfg }) });
+        const j = await r.json();
+        if (j.error) throw new Error(j.error === 'unauthorized' ? '관리자 토큰이 올바르지 않습니다' : j.error);
+      }
+      dirty = false; render(); msg('저장했습니다 · ' + new Date().toLocaleTimeString('ko-KR'), 'ok');
+      pv();
+    } catch (e) { msg('저장 실패: ' + e.message, 'err'); }
+  }
+
+  function pv() { $('#pv').src = 'index.html' + location.search + (location.search ? '&' : '?') + 'p=' + Date.now(); }
+
+  /* ---- 이미지 업로드 ---- */
+  let upData = null;   // { mime, b64, w, h }
+  $('#upFile').onchange = e => {
+    const f = e.target.files[0]; upData = null; $('#upGo').disabled = true; $('#upWarn').textContent = ''; $('#upPrev').classList.add('hide');
+    if (!f) return;
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(f.type)) { $('#upWarn').textContent = 'PNG, JPG, WEBP 이미지만 올릴 수 있습니다.'; return; }
+    if (f.size > 8 * 1024 * 1024) { $('#upWarn').textContent = '파일이 8MB를 넘습니다. 용량을 줄여 주세요.'; return; }
+    const rd = new FileReader();
+    rd.onload = () => {
+      const url = rd.result, img = new Image();
+      img.onload = () => {
+        upData = { mime: f.type, b64: url.split(',')[1], w: img.naturalWidth, h: img.naturalHeight, url };
+        $('#upPrev').src = url; $('#upPrev').classList.remove('hide');
+        if (!$('#upName').value) $('#upName').value = f.name.replace(/\.[^.]+$/, '');
+        const r = img.naturalWidth / img.naturalHeight;
+        $('#upWarn').textContent = Math.abs(r - 3.4) > 0.06
+          ? `이미지 비율이 ${r.toFixed(2)}:1 입니다. 3.4:1이 아니면 LED에 검은 여백이 생깁니다. (${img.naturalWidth}×${img.naturalHeight})`
+          : `비율 확인 완료 (${img.naturalWidth}×${img.naturalHeight})`;
+        $('#upGo').disabled = false;
+      };
+      img.src = url;
+    };
+    rd.readAsDataURL(f);
+  };
+  $('#upGo').onclick = async () => {
+    if (!upData) return;
+    const name = ($('#upName').value || '업로드 이미지').trim(), sec = Math.max(3, +$('#upSec').value || 12);
+    const start = $('#upStart').value, end = $('#upEnd').value;
+    if (start && end && end < start) { $('#upMsg').textContent = '종료일이 시작일보다 빠릅니다.'; return; }
+    $('#upGo').disabled = true; $('#upMsg').textContent = '올리는 중...';
+    try {
+      let file;
+      if (!API) {
+        file = 'demo_' + Date.now();
+        localStorage.setItem('led_asset_' + file, upData.url);
+      } else {
+        if (!adminTok()) { $('#auth').classList.remove('hide'); throw new Error('관리자 토큰을 먼저 입력하세요'); }
+        const r = await fetch(API, { method: 'POST', body: JSON.stringify({ action: 'upload', token: adminTok(), name, mime: upData.mime, data: upData.b64 }) });
+        const j = await r.json();
+        if (j.error) throw new Error(j.error === 'unauthorized' ? '관리자 토큰이 올바르지 않습니다' : j.error);
+        file = j.file;
+      }
+      cfg.slides.push({ id: 'u_' + file, type: 'image', name, file, start, end, on: true, sec });
+      dirty = true; render(); await save();
+      upData = null; $('#upFile').value = ''; $('#upName').value = ''; $('#upStart').value = ''; $('#upEnd').value = '';
+      $('#upPrev').classList.add('hide'); $('#upWarn').textContent = ''; $('#upMsg').textContent = '올렸습니다.';
+    } catch (e) { $('#upMsg').textContent = '실패: ' + e.message; $('#upGo').disabled = false; }
+  };
+  async function removeImage(i) {
+    const s = cfg.slides[i];
+    if (!confirm(`'${s.name}' 이미지를 삭제할까요? 되돌릴 수 없습니다.`)) return;
+    try {
+      if (!API) localStorage.removeItem('led_asset_' + s.file);
+      else {
+        if (!adminTok()) { $('#auth').classList.remove('hide'); msg('관리자 토큰이 필요합니다.', 'err'); return; }
+        const r = await fetch(API, { method: 'POST', body: JSON.stringify({ action: 'delete_asset', token: adminTok(), file: s.file }) });
+        const j = await r.json();
+        if (j.error && j.error !== 'not found') throw new Error(j.error);
+      }
+      if (cfg.solo === s.id) cfg.solo = null;
+      cfg.slides.splice(i, 1);
+      if (!cfg.slides.some(x => x.on)) cfg.slides[0].on = true;
+      dirty = true; render(); await save();
+    } catch (e) { msg('삭제 실패: ' + e.message, 'err'); }
+  }
+
+  $('#save').onclick = save;
+  $('#unsolo').onclick = () => { cfg.solo = null; dirty = true; render(); };
+  $('#tokOk').onclick = () => { try { sessionStorage.setItem('led_admin_tok', $('#tok').value.trim()); } catch (e) {} $('#auth').classList.add('hide'); msg(''); };
+  addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  load(); pv();
+</script>
+</body>
+</html>
