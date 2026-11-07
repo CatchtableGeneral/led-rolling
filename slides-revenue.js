@@ -104,13 +104,13 @@
       key: 's12',
       title: P => `${P.M}월 목표달성현황 [자동결제]`, active: 2,
       chart: P => {
-        let s = dailyChart(P, { title: '자동결제 매장 수', tx: 428, ty: 151, plot: { x0: 313, x1: 526, y0: 169.4, y1: 301.5 }, series: P.col('누적 캐치 자동결제 매장수'),
+        let s = dailyChart(P, { title: '자동결제 매장 수', tx: 424, ty: 151, plot: { x0: 313, x1: 535, y0: 169.4, y1: 292 }, series: P.col('누적 캐치 자동결제 매장수'),
           intervals: 3, yFmt: v => f(v), valFmt: v => f(v) });
-        s += dailyChart(P, { title: '자동결제 등록 수', tx: 683, ty: 151, plot: { x0: 582, x1: 816.7, y0: 169.4, y1: 301.5 }, series: P.col('누적 캐치 자동결제 등록수'),
+        s += dailyChart(P, { title: '자동결제 등록 수', tx: 695, ty: 151, plot: { x0: 584, x1: 806, y0: 169.4, y1: 292 }, series: P.col('누적 캐치 자동결제 등록수'),
           intervals: 3, yFmt: v => f(v), valFmt: v => f(v) });
         const rate = P.col('자동결제 방문 대비 결제율%').map(v => v == null ? null : v * 100);
-        s += dailyChart(P, { title: '데일리 자동결제 방문 대비 결제율', tx: 955, ty: 151, plot: { x0: 834, x1: 1051, y0: 169.4, y1: 292 }, series: rate, goal: Array(P.days).fill(65),
-          intervals: 4, yFmt: v => v + '%', valFmt: v => v.toFixed(1) + '%', legend: { x: 905, y: 318, items: [['ACTUAL', ORANGE], ['GOAL', '#b5b5b5']] } });
+        s += dailyChart(P, { title: '데일리 자동결제 방문 대비 결제율', tx: 966, ty: 151, plot: { x0: 855, x1: 1077, y0: 169.4, y1: 292 }, series: rate, goal: Array(P.days).fill(65),
+          intervals: 4, yFmt: v => v + '%', valFmt: v => v.toFixed(1) + '%', legend: { x: 916, y: 318, items: [['ACTUAL', ORANGE], ['GOAL', '#b5b5b5']] } });
         return s;
       },
     },
