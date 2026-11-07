@@ -106,20 +106,20 @@
     visits: {
       key: 's06', head: HEAD_B, list: LIST_B, active: 0, cards: cardsB,
       title: P => `${P.M}월 목표달성현황 [예약 방문 수]`, desc: DESC_VIS,
-      chart: P => dailyBars(P, { n: 4, series: P.col('누적 캐치 방문수'), goalVals: P.goals.visits, geo: GEO_B, valPos: 'base', valFs: 4.4,
+      chart: P => dailyBars(P, { n: 4, series: P.col('누적 캐치 방문수'), goalVals: P.goals.visits, geo: GEO_B, valPos: 'center', valFs: 4.4,
         goal: { values: P.goals.visits || [], line: true, labels: 'all', fs: 4.4, dy: 3.2 }, legend: LEG([['ACTUAL', ORANGE], ['GOAL', '#bdbdbd', 'dot']], 669) }),
     },
     regs: {
       key: 's07', head: HEAD_B, list: LIST_B, active: 1, cards: cardsB,
       title: P => `${P.M}월 목표달성현황 [예약 등록 수]`, desc: DESC_VIS,
-      chart: P => dailyBars(P, { n: 4, series: P.col('누적 캐치 등록수'), geo: GEO_B, valPos: 'base', valFs: 4.4,
+      chart: P => dailyBars(P, { n: 4, series: P.col('누적 캐치 등록수'), geo: GEO_B, valPos: 'center', valFs: 4.4,
         legend: LEG([['ACTUAL', ORANGE]], 685) }),
     },
     remote: {
       key: 's08', head: HEAD_B, list: LIST_B, active: 2, cards: cardsB,
       title: P => `${P.M}월 목표달성현황 [원격대기 방문 수]`,
       desc: '[원격대기 방문 수]는 캐치테이블 원격대기를 통해 실제 방문까지 이어진 누적 수예요. ‘줄 서는 경험’도 우리 안에서 더 편하게 바뀌고 있다는 걸 보여줍니다.',
-      chart: P => dailyBars(P, { brightFn: (v, ax) => v > 0 && Math.round(v / ax.yStep) % 2 === 0, n: 6, series: P.col('누적 원격대기 방문수'), goalVals: P.goals.remote, geo: Object.assign({}, GEO_B, { topY: 155 }), valPos: 'base', valFs: 4.4,
+      chart: P => dailyBars(P, { brightFn: (v, ax) => v > 0 && Math.round(v / ax.yStep) % 2 === 0, n: 6, series: P.col('누적 원격대기 방문수'), goalVals: P.goals.remote, geo: Object.assign({}, GEO_B, { topY: 155 }), valPos: 'center', valFs: 4.4,
         goal: { values: P.goals.remote || [], line: true, labels: 'all', fs: 4.4, dy: 3.2 }, legend: LEG([['ACTUAL', ORANGE], ['GOAL', '#bdbdbd', 'dot']], 669) }),
     },
     duv: {
