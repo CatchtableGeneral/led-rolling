@@ -5,94 +5,251 @@
 <title>LED 송출 관리</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-  :root { --bg:#f6f5f6; --card:#fff; --ink:#111; --sub:#6b6b70; --line:#e4e2e5; --brand:#FF3D00; --off:#c9c6cb; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg:#141416; --card:#1d1d20; --ink:#f3f2f4; --sub:#9a98a0; --line:#2c2c30; --off:#4a484e; }
+  :root {
+    --bg:#f7f7f5; --card:#ffffff; --ink:#191919; --sub:#787774; --faint:#a8a6a0;
+    --line:rgba(25,25,25,.09); --hover:rgba(25,25,25,.04); --field:#f1f1ef;
+    --brand:#FF3D00; --brand-soft:rgba(255,61,0,.09); --off:#d3d1cb;
+    --danger:#d92d20; --ok:#1a7f37; --warn:#b54708;
+    --shadow:0 1px 2px rgba(0,0,0,.04), 0 6px 20px rgba(0,0,0,.05);
+    --ease:cubic-bezier(.2,.8,.2,1); --spring:cubic-bezier(.34,1.56,.64,1);
   }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink);
-    font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif; }
-  main { max-width:760px; margin:0 auto; padding:24px 16px 80px; }
-  h1 { font-size:20px; margin:0 0 4px; }
-  .muted { color:var(--sub); font-size:13px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-top:16px; }
-  .preview { aspect-ratio:3.4/1; width:100%; border:0; border-radius:10px; background:#000; display:block; }
-  .status { display:flex; gap:8px; align-items:center; margin-top:12px; font-size:14px; flex-wrap:wrap; }
-  .pill { padding:3px 10px; border-radius:999px; font-size:12px; font-weight:700; background:#e9e7ea; color:#444; }
-  .pill.solo { background:var(--brand); color:#fff; }
-  .row { display:grid; grid-template-columns:auto 1fr auto auto auto; gap:12px; align-items:center;
-    padding:12px 0; border-top:1px solid var(--line); }
-  .row:first-child { border-top:0; }
-  .row.off .name { color:var(--sub); text-decoration:line-through; }
-  .name { font-weight:600; }
-  .arrows { display:flex; flex-direction:column; gap:2px; }
-  button { font:inherit; cursor:pointer; }
-  .arrows button { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:6px;
-    width:28px; height:20px; font-size:10px; line-height:1; padding:0; }
-  .arrows button:disabled { opacity:.3; cursor:default; }
-  .sw { position:relative; width:46px; height:26px; border-radius:999px; border:0; background:var(--off); transition:.2s; }
-  .sw::after { content:''; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; transition:.2s; }
-  .sw.on { background:var(--brand); } .sw.on::after { left:23px; }
-  .sec { width:64px; padding:6px 8px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--ink); font:inherit; text-align:right; }
-  .solo-btn { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:8px; padding:7px 12px; font-size:13px; font-weight:600; }
-  .solo-btn.active { background:var(--brand); border-color:var(--brand); color:#fff; }
-  .bar { display:flex; gap:8px; align-items:center; margin-top:14px; flex-wrap:wrap; }
-  .primary { border:0; background:var(--brand); color:#fff; border-radius:10px; padding:10px 18px; font-weight:700; }
-  .ghost { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:10px; padding:10px 14px; }
-  #msg { font-size:13px; } #msg.err { color:#d92d20; } #msg.ok { color:#1a7f37; }
-  #auth input { padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--ink); font:inherit; width:100%; }
-  .period { margin-top:6px; font-weight:400; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
-  .period input[type=date] { padding:3px 6px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink); font:inherit; font-size:12px; }
-  .del { margin-left:auto; border:1px solid var(--line); background:var(--card); color:#d92d20; border-radius:6px; padding:3px 10px; font-size:12px; }
-  .up-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
-  .up-grid label { font-size:12px; color:var(--sub); display:block; margin-bottom:4px; }
-  .up-grid input { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--ink); font:inherit; }
-  #upPrev { width:100%; aspect-ratio:3.4/1; background:#000; border-radius:8px; object-fit:contain; display:block; margin-top:10px; }
-  #upWarn { font-size:13px; margin-top:8px; color:#b54708; }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#191919; --card:#202020; --ink:#ececeb; --sub:#9b9a97; --faint:#6b6a67;
+      --line:rgba(255,255,255,.09); --hover:rgba(255,255,255,.05); --field:#2a2a2a;
+      --brand-soft:rgba(255,61,0,.18); --off:#4a4a4a; --warn:#f79009; --ok:#4ade80;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.28);
+    }
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html { color-scheme:light dark; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-size:14px; line-height:1.45;
+    font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif;
+    -webkit-font-smoothing:antialiased; }
+  button { font:inherit; color:inherit; cursor:pointer; }
+  input { font:inherit; color:inherit; }
   .hide { display:none !important; }
-  @media (max-width:520px) { .row { grid-template-columns:auto 1fr auto; } .row .sec-wrap, .row .solo-btn { grid-column:2 / -1; } }
+
+  .app { max-width:1180px; margin:0 auto; padding:28px 24px 120px; }
+  header { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:20px; }
+  h1 { font-size:22px; font-weight:700; letter-spacing:-.02em; margin:0; }
+  .sub { color:var(--sub); font-size:13px; margin-top:2px; }
+  .mode { display:inline-flex; align-items:center; gap:8px; padding:6px 12px 6px 10px; border-radius:99px;
+    background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow); font-size:13px; font-weight:600; }
+  .mode .dot { width:8px; height:8px; border-radius:50%; background:#22c55e; position:relative; }
+  .mode .dot::after { content:''; position:absolute; inset:0; border-radius:50%; background:inherit; animation:ping 2s var(--ease) infinite; }
+  .mode.solo .dot { background:var(--brand); }
+  .mode small { color:var(--sub); font-weight:500; font-size:12px; }
+  @keyframes ping { 0% { transform:scale(1); opacity:.7; } 80%,100% { transform:scale(2.6); opacity:0; } }
+
+  .grid { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(340px,.8fr); gap:20px; align-items:start; }
+  .side { position:sticky; top:20px; display:flex; flex-direction:column; gap:16px; }
+  @media (max-width:920px) { .grid { grid-template-columns:1fr; } .side { position:static; } .app { padding:20px 14px 120px; } }
+
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); }
+  .card .hd { display:flex; align-items:center; justify-content:space-between; padding:14px 16px 0; }
+  .card h2 { font-size:13px; font-weight:700; margin:0; color:var(--sub); letter-spacing:.01em; }
+
+  /* 목록 */
+  #list { padding:8px; }
+  .row { display:grid; grid-template-columns:22px 22px minmax(0,1fr) auto auto auto; gap:10px; align-items:center;
+    padding:8px 10px; min-height:52px; border-radius:10px; background:var(--card); transition:background .15s; }
+  .row:hover { background:var(--hover); }
+  .row.new { animation:rise .35s var(--ease); }
+  .row.drag { opacity:.45; }
+  @keyframes rise { from { opacity:0; transform:translateY(8px); } }
+  .grip { border:0; background:none; padding:0; width:22px; height:28px; color:var(--faint); border-radius:6px; cursor:grab; display:grid; place-items:center; }
+  .grip:hover { color:var(--ink); background:var(--hover); }
+  .grip:active { cursor:grabbing; }
+  .grip svg { width:14px; height:14px; fill:currentColor; }
+  .idx { color:var(--faint); font-size:12px; font-variant-numeric:tabular-nums; text-align:center; }
+  .info { min-width:0; transition:opacity .2s; }
+  .name { font-weight:600; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:color .2s; }
+  .row.off .info { opacity:.45; }
+  .tag { display:inline-block; font-size:10.5px; font-weight:700; padding:1px 6px; border-radius:5px; margin-right:6px;
+    background:var(--brand-soft); color:var(--brand); vertical-align:1px; }
+  .period { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:4px; font-size:12px; color:var(--sub); }
+  .period input[type=date] { padding:3px 6px; border:1px solid transparent; border-radius:6px; background:var(--field); font-size:12px; }
+  .period input[type=date]:focus { outline:2px solid var(--brand); outline-offset:0; }
+  .pnote { color:var(--faint); }
+  .link-del { border:0; background:none; color:var(--danger); font-size:12px; padding:2px 6px; border-radius:6px; margin-left:auto; }
+  .link-del:hover { background:rgba(217,45,32,.1); }
+
+  .secbox { display:flex; align-items:center; gap:4px; background:var(--field); border-radius:8px; padding:0 9px 0 4px; transition:box-shadow .15s; }
+  .secbox:focus-within { box-shadow:0 0 0 2px var(--brand); }
+  .secbox input { width:44px; border:0; background:none; text-align:right; padding:6px 2px; font-variant-numeric:tabular-nums; font-weight:600; outline:none; -moz-appearance:textfield; }
+  .secbox input::-webkit-outer-spin-button, .secbox input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+  .secbox span { color:var(--sub); font-size:12px; }
+
+  .solo { font-size:12px; font-weight:600; padding:6px 12px; border-radius:99px; border:1px solid var(--line); background:transparent;
+    color:var(--sub); transition:background .2s var(--ease), color .2s, border-color .2s, transform .15s; white-space:nowrap; min-width:88px; }
+  .solo:hover { color:var(--ink); background:var(--hover); }
+  .solo:active { transform:scale(.96); }
+  .solo.active { background:var(--brand); border-color:var(--brand); color:#fff; }
+  .solo.active:hover { filter:brightness(1.05); }
+
+  .sw { position:relative; width:42px; height:24px; border:0; border-radius:99px; background:var(--off); padding:0; flex:none;
+    transition:background .25s var(--ease); }
+  .sw i { position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:99px; background:#fff;
+    box-shadow:0 1px 3px rgba(0,0,0,.3); transition:transform .32s var(--spring), width .18s var(--ease); }
+  .sw.on { background:var(--brand); }
+  .sw.on i { transform:translateX(18px); }
+  .sw:active i { width:25px; } .sw.on:active i { transform:translateX(13px); }
+
+  .mv { display:none; }
+  @media (hover:none) { .mv { display:flex; flex-direction:column; } .grip { display:none; }
+    .row { grid-template-columns:26px 22px minmax(0,1fr) auto auto auto; }
+    .mv button { border:0; background:none; font-size:10px; line-height:1.2; padding:2px 6px; color:var(--sub); } }
+  @media (max-width:560px) { .row { grid-template-columns:22px minmax(0,1fr) auto auto; } .row .idx, .row .grip { display:none; }
+    .row .secbox { grid-column:2; justify-self:start; } .solo { min-width:0; } }
+
+  .skel { height:36px; margin:8px 10px; border-radius:8px;
+    background:linear-gradient(90deg,var(--hover),transparent,var(--hover)); background-size:200% 100%; animation:sh 1.2s linear infinite; }
+  @keyframes sh { to { background-position:-200% 0; } }
+
+  /* 미리보기 */
+  .pv-wrap { padding:12px 16px 16px; }
+  .preview { aspect-ratio:3.4/1; width:100%; border:0; border-radius:10px; background:#000; display:block; transition:opacity .3s; }
+  .pv-meta { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px; font-size:12.5px; color:var(--sub); }
+  .link { border:0; background:none; color:var(--brand); font-weight:600; font-size:12.5px; padding:3px 8px; border-radius:6px; }
+  .link:hover { background:var(--brand-soft); }
+
+  /* 업로드 */
+  .up { padding:12px 16px 16px; }
+  .drop { display:grid; place-items:center; text-align:center; gap:2px; padding:18px 12px; border:1.5px dashed var(--line); border-radius:12px;
+    color:var(--sub); cursor:pointer; transition:border-color .2s, background .2s, transform .2s var(--ease); }
+  .drop:hover, .drop.over { border-color:var(--brand); background:var(--brand-soft); color:var(--ink); }
+  .drop.over { transform:scale(1.01); }
+  .drop svg { width:22px; height:22px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .drop b { font-weight:600; color:var(--ink); font-size:13px; }
+  .drop small { font-size:11.5px; }
+  #upPrev { width:100%; aspect-ratio:3.4/1; background:#000; border-radius:10px; object-fit:contain; display:block; margin-top:12px; animation:rise .3s var(--ease); }
+  #upWarn { font-size:12px; margin-top:8px; color:var(--warn); }
+  #upWarn.okk { color:var(--ok); }
+  .fields { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+  .fields label { display:block; font-size:11.5px; color:var(--sub); margin-bottom:4px; font-weight:600; }
+  .fields input { width:100%; padding:8px 10px; border:1px solid transparent; border-radius:8px; background:var(--field); outline:none; transition:box-shadow .15s; }
+  .fields input:focus { box-shadow:0 0 0 2px var(--brand); }
+  .fields .wide { grid-column:1 / -1; }
+  .upbar { display:flex; align-items:center; gap:10px; margin-top:14px; }
+  #upMsg { font-size:12.5px; color:var(--sub); }
+  #upMsg.err { color:var(--danger); }
+
+  .btn { border:0; border-radius:10px; padding:9px 16px; font-weight:700; font-size:13.5px; transition:transform .15s var(--ease), filter .15s, opacity .2s; display:inline-flex; align-items:center; gap:8px; }
+  .btn:active { transform:scale(.97); }
+  .btn.primary { background:var(--brand); color:#fff; }
+  .btn.primary:hover { filter:brightness(1.06); }
+  .btn.primary:disabled { opacity:.35; cursor:default; filter:none; transform:none; }
+  .btn.ghost { background:var(--field); color:var(--ink); }
+  .btn.ghost:hover { filter:brightness(.96); }
+  .btn.danger { background:var(--danger); color:#fff; }
+  .spin { width:14px; height:14px; border-radius:50%; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; animation:rot .7s linear infinite; }
+  @keyframes rot { to { transform:rotate(360deg); } }
+
+  /* 하단 저장 바 */
+  .savebar { position:fixed; left:50%; bottom:20px; transform:translate(-50%,140%); display:flex; align-items:center; gap:14px;
+    background:#1f1f1f; color:#fff; padding:10px 10px 10px 18px; border-radius:16px; box-shadow:0 10px 40px rgba(0,0,0,.35);
+    transition:transform .45s var(--spring); z-index:20; max-width:calc(100vw - 24px); }
+  .savebar.show { transform:translate(-50%,0); }
+  .savebar .t { font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px; white-space:nowrap; }
+  .savebar .t::before { content:''; width:7px; height:7px; border-radius:50%; background:var(--brand); }
+  .savebar .btn.ghost { background:rgba(255,255,255,.12); color:#fff; }
+
+  /* 토스트 */
+  #toasts { position:fixed; top:16px; left:50%; transform:translateX(-50%); display:flex; flex-direction:column; gap:8px; z-index:40; align-items:center; pointer-events:none; }
+  .toast { background:#1f1f1f; color:#fff; padding:10px 16px; border-radius:12px; font-size:13px; font-weight:600; box-shadow:0 8px 30px rgba(0,0,0,.3);
+    animation:tin .4s var(--spring); max-width:min(520px,calc(100vw - 24px)); }
+  .toast.err { background:#b42318; } .toast.ok::before { content:'✓ '; color:#4ade80; }
+  .toast.out { animation:tout .25s var(--ease) forwards; }
+  @keyframes tin { from { opacity:0; transform:translateY(-14px) scale(.96); } }
+  @keyframes tout { to { opacity:0; transform:translateY(-8px); } }
+
+  /* 대화상자 */
+  dialog { border:0; border-radius:18px; padding:22px; width:min(380px,calc(100vw - 32px)); background:var(--card); color:var(--ink); box-shadow:0 20px 60px rgba(0,0,0,.35); }
+  dialog[open] { animation:pop .35s var(--spring); }
+  dialog::backdrop { background:rgba(0,0,0,.35); backdrop-filter:blur(6px); animation:fade .25s; }
+  @keyframes pop { from { opacity:0; transform:scale(.94) translateY(8px); } }
+  @keyframes fade { from { opacity:0; } }
+  dialog h3 { margin:0 0 6px; font-size:16px; }
+  dialog p { margin:0 0 14px; color:var(--sub); font-size:13px; }
+  dialog input[type=password] { width:100%; padding:10px 12px; border:1px solid transparent; border-radius:10px; background:var(--field); outline:none; }
+  dialog input[type=password]:focus { box-shadow:0 0 0 2px var(--brand); }
+  .dlgbar { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.01ms !important; transition-duration:.01ms !important; } }
 </style>
 </head>
 <body>
-<main>
-  <h1>LED 송출 관리</h1>
-  <div class="muted">카페테리아 대형 LED · 변경은 저장하면 약 10초 안에 화면에 반영됩니다</div>
+<div class="app">
+  <header>
+    <div>
+      <h1>LED 송출 관리</h1>
+      <div class="sub">카페테리아 대형 LED · 저장하면 약 10초 안에 화면에 반영됩니다</div>
+    </div>
+    <div class="mode" id="mode"><span class="dot"></span><span id="modeTxt">-</span><small id="modeSub"></small></div>
+  </header>
 
-  <div class="card hide" id="auth">
-    <div class="muted" style="margin-bottom:8px">관리자 토큰을 입력하세요 (이 브라우저에 저장되어 다음부터는 묻지 않습니다)</div>
+  <div class="grid">
+    <section class="card">
+      <div class="hd"><h2>송출 순서 · 설정</h2><span class="sub" style="margin:0">핸들을 끌어서 순서를 바꿔요</span></div>
+      <div id="list"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
+    </section>
+
+    <aside class="side">
+      <section class="card">
+        <div class="hd"><h2>현재 송출 화면</h2></div>
+        <div class="pv-wrap">
+          <iframe class="preview" id="pv" title="송출 미리보기"></iframe>
+          <div class="pv-meta"><span id="pvTxt"></span><button class="link hide" id="unsolo">단독 송출 해제</button></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="hd"><h2>화면 추가 (이미지)</h2></div>
+        <div class="up">
+          <label class="drop" id="drop" for="upFile">
+            <svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+            <b>이미지를 끌어다 놓거나 눌러서 선택</b>
+            <small>3.4:1 비율(예: 3400×1000) · PNG·JPG·WEBP · 8MB 이하</small>
+          </label>
+          <input type="file" id="upFile" class="hide" accept="image/png,image/jpeg,image/webp">
+          <img id="upPrev" class="hide" alt="미리보기">
+          <div id="upWarn"></div>
+          <div class="fields">
+            <div class="wide"><label>이름</label><input id="upName" maxlength="60" placeholder="예: 11월 사내 행사 안내"></div>
+            <div><label>노출 시간(초)</label><input id="upSec" type="number" min="3" max="600" value="12"></div>
+            <div></div>
+            <div><label>시작일 (선택)</label><input id="upStart" type="date"></div>
+            <div><label>종료일 (선택)</label><input id="upEnd" type="date"></div>
+          </div>
+          <div class="upbar"><button class="btn primary" id="upGo" disabled>올리기</button><span id="upMsg"></span></div>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<div class="savebar" id="bar" role="status">
+  <span class="t">저장하지 않은 변경사항이 있어요</span>
+  <button class="btn ghost" id="revert">되돌리기</button>
+  <button class="btn primary" id="save">저장</button>
+</div>
+<div id="toasts" aria-live="polite"></div>
+
+<dialog id="auth">
+  <form id="authForm">
+    <h3>관리자 토큰</h3>
+    <p>관리자 토큰을 입력하세요. 이 브라우저에 저장되어 다음부터는 묻지 않습니다.</p>
     <input type="password" id="tok" placeholder="ADMIN TOKEN" autocomplete="off">
-    <div class="bar"><button class="primary" id="tokOk">확인</button></div>
-  </div>
-
-  <div class="card">
-    <div class="muted" style="margin-bottom:8px">현재 송출 화면</div>
-    <iframe class="preview" id="pv" title="송출 미리보기"></iframe>
-    <div class="status"><span class="pill" id="mode">-</span><span id="modeTxt" class="muted"></span></div>
-  </div>
-
-  <div class="card">
-    <div id="list"></div>
-    <div class="bar">
-      <button class="primary" id="save">저장</button>
-      <button class="ghost" id="unsolo">단독 송출 해제</button>
-      <span id="msg"></span>
-    </div>
-  </div>
-  <div class="card">
-    <div style="font-weight:700">화면 추가 (이미지)</div>
-    <div class="muted" style="margin-top:4px">가로세로 비율 3.4:1(예: 3400×1000)로 만든 PNG·JPG·WEBP, 8MB 이하. 올리면 위 목록 맨 아래에 추가됩니다.</div>
-    <input type="file" id="upFile" accept="image/png,image/jpeg,image/webp" style="margin-top:10px">
-    <img id="upPrev" class="hide" alt="미리보기">
-    <div id="upWarn"></div>
-    <div class="up-grid">
-      <div><label>이름</label><input id="upName" maxlength="60" placeholder="예: 11월 사내 행사 안내"></div>
-      <div><label>노출 시간(초)</label><input id="upSec" type="number" min="3" max="600" value="12"></div>
-      <div><label>노출 시작일 (선택)</label><input id="upStart" type="date"></div>
-      <div><label>노출 종료일 (선택)</label><input id="upEnd" type="date"></div>
-    </div>
-    <div class="bar"><button class="primary" id="upGo" disabled>올리기</button><span id="upMsg" class="muted"></span></div>
-  </div>
-</main>
+    <div class="dlgbar"><button type="button" class="btn ghost" id="authCancel">취소</button><button class="btn primary">확인</button></div>
+  </form>
+</dialog>
+<dialog id="dlg">
+  <form method="dialog">
+    <h3 id="dlgT"></h3><p id="dlgB"></p>
+    <div class="dlgbar"><button value="no" class="btn ghost">취소</button><button value="yes" class="btn danger">삭제</button></div>
+  </form>
+</dialog>
 
 <script src="config.js"></script>
 <script src="config.local.js" onerror="this.remove()"></script>
@@ -103,18 +260,47 @@
   const API = P.get('api') || CFG.api || '', RTOKEN = P.get('token') || CFG.token || (() => { try { return localStorage.getItem('led_read_tok') || ''; } catch (e) { return ''; } })();
   if (P.get('token')) { try { localStorage.setItem('led_read_tok', P.get('token')); } catch (e) {} }
   const $ = s => document.querySelector(s);
-  let cfg = null, dirty = false;
+  let cfg = null, orig = '', dirty = false, saving = false;
   const adminTok = () => { if (CFG.admin) return CFG.admin; try { return localStorage.getItem('led_admin_tok') || sessionStorage.getItem('led_admin_tok') || ''; } catch (e) { return ''; } };
+  const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const META = () => Object.fromEntries(window.SLIDES.map(s => [s.id, s]));
+  const nameOf = s => s.type ? s.name : ((META()[s.id] || {}).name || s.id);
 
-  const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  function periodNote(s) {
-    if (!s.start && !s.end) return '· 기간 제한 없음';
-    const t = window.todayStr();
-    if (s.start && t < s.start) return '· 시작 전 (대기 중)';
-    if (s.end && t > s.end) return '· 기간 종료 (송출 안 됨)';
-    return '· 노출 중';
+  /* ---------- 알림(토스트) / 대화상자 ---------- */
+  function toast(text, kind) {
+    const el = document.createElement('div'); el.className = 'toast ' + (kind || ''); el.textContent = text;
+    $('#toasts').appendChild(el);
+    setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 260); }, kind === 'err' ? 6000 : 2600);
   }
-  function msg(t, cls) { const m = $('#msg'); m.textContent = t || ''; m.className = cls || ''; }
+  function ask(title, body) {
+    return new Promise(res => {
+      $('#dlgT').textContent = title; $('#dlgB').textContent = body;
+      const d = $('#dlg'); d.returnValue = 'no';
+      d.addEventListener('close', () => res(d.returnValue === 'yes'), { once: true });
+      d.showModal();
+    });
+  }
+  let pending = null;   // 토큰 입력 후 다시 실행할 동작
+  function needTok(retry) { pending = retry || null; $('#tok').value = ''; if (!$('#auth').open) $('#auth').showModal(); setTimeout(() => $('#tok').focus(), 50); }
+  function badTok() { try { localStorage.removeItem('led_admin_tok'); sessionStorage.removeItem('led_admin_tok'); } catch (e) {} }
+  $('#authForm').onsubmit = e => {
+    e.preventDefault();
+    const v = $('#tok').value.trim(); if (!v) return;
+    try { localStorage.setItem('led_admin_tok', v); } catch (x) { try { sessionStorage.setItem('led_admin_tok', v); } catch (y) {} }
+    $('#auth').close(); const f = pending; pending = null; if (f) f();
+  };
+  $('#authCancel').onclick = () => { pending = null; $('#auth').close(); };
+
+  /* ---------- 서버 호출 ---------- */
+  const NET_MSG = '서버와 통신하지 못했습니다. 인터넷이 끊겼거나, Apps Script의 권한 승인이 안 됐을 수 있어요.';
+  async function post(body) {
+    let r, j;
+    try { r = await fetch(API, { method: 'POST', body: JSON.stringify(Object.assign({ token: adminTok() }, body)) }); j = await r.json(); }
+    catch (e) { throw new Error(NET_MSG); }
+    if (j.error === 'unauthorized') { badTok(); const err = new Error('관리자 토큰이 올바르지 않습니다.'); err.auth = true; throw err; }
+    if (j.error) throw new Error(j.error);
+    return j;
+  }
 
   async function load() {
     try {
@@ -125,75 +311,176 @@
         if (j.error) throw new Error(j.error);
         cfg = j;
       }
-    } catch (e) { if (API) msg('설정을 불러오지 못했습니다: ' + e.message, 'err'); }
+    } catch (e) { if (API) toast('설정을 불러오지 못했습니다: ' + e.message, 'err'); }
     cfg = window.normalizeConfig(cfg);
-    render();
+    orig = JSON.stringify(cfg); dirty = false;
+    $('#list').innerHTML = '';
+    renderList(true);
   }
 
-  function move(i, d) { const a = cfg.slides; [a[i], a[i + d]] = [a[i + d], a[i]]; dirty = true; render(); }
+  /* ---------- 목록 ---------- */
+  const GRIP = '<svg viewBox="0 0 14 14"><circle cx="4.5" cy="3" r="1.3"/><circle cx="9.5" cy="3" r="1.3"/><circle cx="4.5" cy="7" r="1.3"/><circle cx="9.5" cy="7" r="1.3"/><circle cx="4.5" cy="11" r="1.3"/><circle cx="9.5" cy="11" r="1.3"/></svg>';
+  function makeRow(s) {
+    const el = document.createElement('div');
+    el.className = 'row new'; el.dataset.id = s.id;
+    el.innerHTML = `
+      <button class="grip" data-act="grip" aria-label="순서 변경 (위·아래 방향키)" title="끌어서 순서 변경">${GRIP}</button>
+      <span class="idx"></span>
+      <div class="info"><div class="name"></div>${s.type ? `<div class="period">노출
+        <input type="date" data-f="start"> ~ <input type="date" data-f="end"> <span class="pnote"></span>
+        <button class="link-del" data-act="del">삭제</button></div>` : ''}</div>
+      <span class="mv"><button data-act="up" aria-label="위로">▲</button><button data-act="down" aria-label="아래로">▼</button></span>
+      <label class="secbox"><input class="sec" type="number" min="3" max="600" inputmode="numeric"><span>초</span></label>
+      <button class="solo" data-act="solo"></button>
+      <button class="sw" data-act="toggle" role="switch"><i></i></button>`;
+    setTimeout(() => el.classList.remove('new'), 400);
+    return el;
+  }
+  function periodNote(s) {
+    if (!s.start && !s.end) return '· 기간 제한 없음';
+    const t = window.todayStr();
+    if (s.start && t < s.start) return '· 시작 전 (대기 중)';
+    if (s.end && t > s.end) return '· 기간 종료 (송출 안 됨)';
+    return '· 노출 중';
+  }
+  function patchRow(el, s, i) {
+    el.classList.toggle('off', !s.on);
+    el.querySelector('.idx').textContent = i + 1;
+    const nm = el.querySelector('.name');
+    nm.innerHTML = (s.type ? '<span class="tag">이미지</span>' : '') + esc(nameOf(s));
+    const sec = el.querySelector('.sec'); if (document.activeElement !== sec) sec.value = s.sec;
+    const so = el.querySelector('.solo'); const on = cfg.solo === s.id;
+    so.classList.toggle('active', on); so.textContent = on ? '단독 송출 중' : '이것만 송출';
+    const sw = el.querySelector('.sw'); sw.classList.toggle('on', !!s.on); sw.setAttribute('aria-checked', !!s.on); sw.setAttribute('aria-label', nameOf(s) + ' 송출');
+    if (s.type) {
+      const a = el.querySelector('[data-f=start]'), b = el.querySelector('[data-f=end]');
+      if (a.value !== (s.start || '')) a.value = s.start || ''; if (b.value !== (s.end || '')) b.value = s.end || '';
+      el.querySelector('.pnote').textContent = periodNote(s);
+    }
+    el.querySelector('[data-act=up]').disabled = i === 0;
+    el.querySelector('[data-act=down]').disabled = i === cfg.slides.length - 1;
+  }
+  /* 목록을 현재 순서에 맞게 맞춤(요소를 재사용해서 애니메이션이 끊기지 않음) + 순서가 바뀌면 부드럽게 이동 */
+  function renderList(first) {
+    const list = $('#list');
+    const rows = new Map([...list.children].filter(e => e.classList.contains('row')).map(e => [e.dataset.id, e]));
+    const before = new Map([...rows].map(([id, e]) => [id, e.getBoundingClientRect().top]));
+    const ids = new Set(cfg.slides.map(s => s.id));
+    rows.forEach((e, id) => { if (!ids.has(id)) e.remove(); });
+    cfg.slides.forEach((s, i) => {
+      let el = rows.get(s.id);
+      if (!el) { el = makeRow(s); if (first) el.style.animationDelay = (i * 25) + 'ms'; }
+      if (list.children[i] !== el) list.insertBefore(el, list.children[i] || null);
+      patchRow(el, s, i);
+    });
+    if (!first) [...list.children].forEach(el => {
+      const b = before.get(el.dataset.id); if (b == null) return;
+      const dy = b - el.getBoundingClientRect().top;
+      if (Math.abs(dy) > 1) el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 240, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    });
+    renderMeta();
+  }
+  function renderMeta() {
+    dirty = JSON.stringify(Object.assign({}, cfg, { updatedAt: 0 })) !== JSON.stringify(Object.assign({}, JSON.parse(orig), { updatedAt: 0 }));
+    $('#bar').classList.toggle('show', dirty);
+    const on = cfg.slides.filter(x => x.on), soloS = cfg.solo && cfg.slides.find(x => x.id === cfg.solo);
+    const total = on.reduce((a, x) => a + (+x.sec || 0), 0);
+    $('#mode').classList.toggle('solo', !!soloS);
+    $('#modeTxt').textContent = soloS ? '단독 송출' : (on.length > 1 ? '순환 송출' : '고정 송출');
+    $('#modeSub').textContent = soloS ? '' : (on.length > 1 ? `${on.length}장 · 한 바퀴 ${total}초` : '');
+    $('#pvTxt').textContent = soloS ? `${nameOf(soloS)} 한 장만 계속 나갑니다` : `켜진 화면 ${on.length}장을 순서대로 보여줍니다`;
+    $('#unsolo').classList.toggle('hide', !soloS);
+  }
+  const touch = () => renderList();
 
-  function toggle(i) {
-    const s = cfg.slides[i];
-    // 전부 꺼지는 것 방지: 마지막 ON은 끌 수 없음
-    if (s.on && cfg.slides.filter(x => x.on).length === 1) { msg('최소 1장은 켜져 있어야 합니다.', 'err'); return; }
-    s.on = !s.on;
-    if (!s.on && cfg.solo === s.id) cfg.solo = null;
-    dirty = true; render();
+  function move(id, to) {
+    const a = cfg.slides, i = a.findIndex(x => x.id === id); if (i < 0) return;
+    const [it] = a.splice(i, 1); a.splice(Math.max(0, Math.min(a.length, to)), 0, it);
+  }
+  function toggle(id) {
+    const s = cfg.slides.find(x => x.id === id);
+    if (s.on && cfg.slides.filter(x => x.on).length === 1) { toast('최소 1장은 켜져 있어야 합니다.', 'err'); return; }
+    s.on = !s.on; if (!s.on && cfg.solo === s.id) cfg.solo = null; touch();
   }
 
-  function setSolo(id) { cfg.solo = cfg.solo === id ? null : id; dirty = true; render(); }
+  const listEl = $('#list');
+  listEl.addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    const row = b.closest('.row'), id = row.dataset.id, act = b.dataset.act, i = cfg.slides.findIndex(x => x.id === id);
+    if (act === 'toggle') toggle(id);
+    else if (act === 'solo') { cfg.solo = cfg.solo === id ? null : id; touch(); }
+    else if (act === 'up') { move(id, i - 1); touch(); }
+    else if (act === 'down') { move(id, i + 1); touch(); }
+    else if (act === 'del') removeImage(id);
+  });
+  listEl.addEventListener('input', e => {
+    if (!e.target.classList.contains('sec')) return;
+    const s = cfg.slides.find(x => x.id === e.target.closest('.row').dataset.id);
+    s.sec = Math.max(3, Math.min(600, parseInt(e.target.value, 10) || 3)); renderMeta();
+  });
+  listEl.addEventListener('change', e => {
+    const row = e.target.closest('.row'); if (!row) return;
+    const s = cfg.slides.find(x => x.id === row.dataset.id);
+    if (e.target.classList.contains('sec')) { e.target.value = s.sec; }
+    else if (e.target.dataset.f) { s[e.target.dataset.f] = e.target.value; touch(); }
+  });
+  /* 핸들 키보드 이동 */
+  listEl.addEventListener('keydown', e => {
+    const g = e.target.closest('.grip'); if (!g || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+    e.preventDefault(); const id = g.closest('.row').dataset.id, i = cfg.slides.findIndex(x => x.id === id);
+    move(id, i + (e.key === 'ArrowUp' ? -1 : 1)); touch(); listEl.querySelector(`.row[data-id="${CSS.escape(id)}"] .grip`).focus();
+  });
+  /* 끌어서 순서 바꾸기 */
+  let dragId = null;
+  listEl.addEventListener('pointerdown', e => { const g = e.target.closest('.grip'); if (g) g.closest('.row').draggable = true; });
+  const undrag = () => listEl.querySelectorAll('.row[draggable=true]').forEach(r => r.draggable = false);
+  listEl.addEventListener('pointerup', undrag); listEl.addEventListener('pointercancel', undrag);
+  listEl.addEventListener('dragstart', e => {
+    const row = e.target.closest('.row'); if (!row || !row.draggable) { e.preventDefault(); return; }
+    dragId = row.dataset.id; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', dragId);
+    setTimeout(() => row.classList.add('drag'), 0);
+  });
+  listEl.addEventListener('dragover', e => {
+    if (!dragId) return; e.preventDefault();
+    const over = e.target.closest('.row'); if (!over || over.dataset.id === dragId) return;
+    const r = over.getBoundingClientRect(), after = e.clientY > r.top + r.height / 2;
+    const rest = cfg.slides.filter(x => x.id !== dragId), oi = rest.findIndex(x => x.id === over.dataset.id);
+    const to = oi + (after ? 1 : 0), cur = cfg.slides.findIndex(x => x.id === dragId);
+    if (to === cur) return;
+    move(dragId, to); renderList();
+  });
+  listEl.addEventListener('dragend', () => { dragId = null; listEl.querySelectorAll('.row').forEach(r => { r.classList.remove('drag'); r.draggable = false; }); renderMeta(); });
+  listEl.addEventListener('drop', e => e.preventDefault());
 
-  function render() {
-    const meta = Object.fromEntries(window.SLIDES.map(s => [s.id, s]));
-    $('#list').innerHTML = cfg.slides.map((s, i) => `
-      <div class="row ${s.on ? '' : 'off'}">
-        <div class="arrows">
-          <button ${i === 0 ? 'disabled' : ''} onclick="move(${i},-1)" aria-label="위로">▲</button>
-          <button ${i === cfg.slides.length - 1 ? 'disabled' : ''} onclick="move(${i},1)" aria-label="아래로">▼</button>
-        </div>
-        <div class="name">${i + 1}. ${s.type ? '🖼 ' + esc(s.name) : meta[s.id].name}
-          ${s.type ? `<div class="period muted">노출 기간
-            <input type="date" value="${s.start || ''}" onchange="cfg.slides[${i}].start=this.value;dirty=true;render()"> ~
-            <input type="date" value="${s.end || ''}" onchange="cfg.slides[${i}].end=this.value;dirty=true;render()">
-            <span>${periodNote(s)}</span>
-            <button class="del" onclick="removeImage(${i})">삭제</button></div>` : ''}
-        </div>
-        <div class="sec-wrap"><input class="sec" type="number" min="3" max="600" value="${s.sec}"
-          onchange="cfg.slides[${i}].sec=Math.max(3,+this.value||3);dirty=true;render()"> <span class="muted">초</span></div>
-        <button class="solo-btn ${cfg.solo === s.id ? 'active' : ''}" onclick="setSolo('${s.id}')">${cfg.solo === s.id ? '단독 송출 중' : '이것만 송출'}</button>
-        <button class="sw ${s.on ? 'on' : ''}" onclick="toggle(${i})" role="switch" aria-checked="${s.on}" aria-label="${s.type ? esc(s.name) : meta[s.id].name} 송출"></button>
-      </div>`).join('');
-    const n = cfg.slides.filter(s => s.on).length;
-    const soloS = cfg.solo && cfg.slides.find(x => x.id === cfg.solo);
-    const solo = soloS && { name: soloS.type ? soloS.name : meta[soloS.id].name };
-    $('#mode').textContent = solo ? '단독 송출' : (n > 1 ? '순환 송출' : '고정 송출');
-    $('#mode').className = 'pill' + (solo ? ' solo' : '');
-    $('#modeTxt').textContent = solo ? solo.name + ' 한 장만 계속 나갑니다' : `켜진 슬라이드 ${n}장을 순서대로 보여줍니다`;
-    $('#unsolo').classList.toggle('hide', !cfg.solo);
-    $('#save').textContent = dirty ? '저장 (변경됨)' : '저장';
-  }
+  $('#unsolo').onclick = () => { cfg.solo = null; touch(); };
+  $('#revert').onclick = () => { cfg = window.normalizeConfig(JSON.parse(orig)); renderList(); };
 
+  /* ---------- 저장 ---------- */
   async function save() {
+    if (saving) return;
     cfg.updatedAt = Date.now();
+    if (API && !adminTok()) { needTok(save); return; }
+    saving = true; $('#save').innerHTML = '<span class="spin"></span>저장 중'; $('#save').disabled = true;
     try {
       if (!API) localStorage.setItem('led_config', JSON.stringify(cfg));
-      else {
-        if (!adminTok()) { $('#auth').classList.remove('hide'); msg('관리자 토큰이 필요합니다.', 'err'); return; }
-        const r = await fetch(API, { method: 'POST', body: JSON.stringify({ action: 'save', token: adminTok(), config: cfg }) });
-        const j = await r.json();
-        if (j.error) throw new Error(j.error === 'unauthorized' ? '관리자 토큰이 올바르지 않습니다' : j.error);
-      }
-      dirty = false; render(); msg('저장했습니다 · ' + new Date().toLocaleTimeString('ko-KR'), 'ok');
-      pv();
-    } catch (e) { msg('저장 실패: ' + e.message, 'err'); }
+      else await post({ action: 'save', config: cfg });
+      orig = JSON.stringify(cfg); renderMeta();
+      toast('저장했습니다 · ' + new Date().toLocaleTimeString('ko-KR'), 'ok'); pv();
+    } catch (e) {
+      toast('저장 실패: ' + e.message, 'err'); if (e.auth) needTok(save);
+    } finally { saving = false; $('#save').textContent = '저장'; $('#save').disabled = false; }
+  }
+  $('#save').onclick = save;
+
+  function pv() {
+    const f = $('#pv'); f.style.opacity = .35; f.onload = () => { f.style.opacity = 1; };
+    f.src = 'index.html' + location.search + (location.search ? '&' : '?') + 'p=' + Date.now();
   }
 
-  function pv() { $('#pv').src = 'index.html' + location.search + (location.search ? '&' : '?') + 'p=' + Date.now(); }
-
-  /* ---- 이미지 업로드 ---- */
-  let upData = null;   // { mime, b64, w, h }
-  $('#upFile').onchange = e => {
-    const f = e.target.files[0]; upData = null; $('#upGo').disabled = true; $('#upWarn').textContent = ''; $('#upPrev').classList.add('hide');
+  /* ---------- 이미지 업로드 ---------- */
+  let upData = null;   // { mime, b64, w, h, url }
+  function setFile(f) {
+    upData = null; $('#upGo').disabled = true; $('#upWarn').textContent = ''; $('#upWarn').className = ''; $('#upPrev').classList.add('hide'); $('#upMsg').textContent = ''; $('#upMsg').className = '';
     if (!f) return;
     if (!['image/png', 'image/jpeg', 'image/webp'].includes(f.type)) { $('#upWarn').textContent = 'PNG, JPG, WEBP 이미지만 올릴 수 있습니다.'; return; }
     if (f.size > 8 * 1024 * 1024) { $('#upWarn').textContent = '파일이 8MB를 넘습니다. 용량을 줄여 주세요.'; return; }
@@ -204,8 +491,9 @@
         upData = { mime: f.type, b64: url.split(',')[1], w: img.naturalWidth, h: img.naturalHeight, url };
         $('#upPrev').src = url; $('#upPrev').classList.remove('hide');
         if (!$('#upName').value) $('#upName').value = f.name.replace(/\.[^.]+$/, '');
-        const r = img.naturalWidth / img.naturalHeight;
-        $('#upWarn').textContent = Math.abs(r - 3.4) > 0.06
+        const r = img.naturalWidth / img.naturalHeight, bad = Math.abs(r - 3.4) > 0.06;
+        $('#upWarn').className = bad ? '' : 'okk';
+        $('#upWarn').textContent = bad
           ? `이미지 비율이 ${r.toFixed(2)}:1 입니다. 3.4:1이 아니면 LED에 검은 여백이 생깁니다. (${img.naturalWidth}×${img.naturalHeight})`
           : `비율 확인 완료 (${img.naturalWidth}×${img.naturalHeight})`;
         $('#upGo').disabled = false;
@@ -213,54 +501,51 @@
       img.src = url;
     };
     rd.readAsDataURL(f);
-  };
-  $('#upGo').onclick = async () => {
+  }
+  $('#upFile').onchange = e => setFile(e.target.files[0]);
+  const drop = $('#drop');
+  ['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) { try { const dt = new DataTransfer(); dt.items.add(f); $('#upFile').files = dt.files; } catch (x) {} setFile(f); } });
+
+  async function upload() {
     if (!upData) return;
     const name = ($('#upName').value || '업로드 이미지').trim(), sec = Math.max(3, +$('#upSec').value || 12);
     const start = $('#upStart').value, end = $('#upEnd').value;
-    if (start && end && end < start) { $('#upMsg').textContent = '종료일이 시작일보다 빠릅니다.'; return; }
-    $('#upGo').disabled = true; $('#upMsg').textContent = '올리는 중...';
+    const m = $('#upMsg'); m.className = '';
+    if (start && end && end < start) { m.textContent = '종료일이 시작일보다 빠릅니다.'; m.className = 'err'; return; }
+    if (API && !adminTok()) { needTok(upload); return; }
+    $('#upGo').disabled = true; $('#upGo').innerHTML = '<span class="spin"></span>올리는 중'; m.textContent = '';
     try {
       let file;
-      if (!API) {
-        file = 'demo_' + Date.now();
-        localStorage.setItem('led_asset_' + file, upData.url);
-      } else {
-        if (!adminTok()) { $('#auth').classList.remove('hide'); throw new Error('관리자 토큰을 먼저 입력하세요'); }
-        const r = await fetch(API, { method: 'POST', body: JSON.stringify({ action: 'upload', token: adminTok(), name, mime: upData.mime, data: upData.b64 }) });
-        const j = await r.json();
-        if (j.error) throw new Error(j.error === 'unauthorized' ? '관리자 토큰이 올바르지 않습니다' : j.error);
-        file = j.file;
-      }
+      if (!API) { file = 'demo_' + Date.now(); localStorage.setItem('led_asset_' + file, upData.url); }
+      else { const j = await post({ action: 'upload', name, mime: upData.mime, data: upData.b64 }); file = j.file; }
       cfg.slides.push({ id: 'u_' + file, type: 'image', name, file, start, end, on: true, sec });
-      dirty = true; render(); await save();
+      renderList(); await save();
       upData = null; $('#upFile').value = ''; $('#upName').value = ''; $('#upStart').value = ''; $('#upEnd').value = '';
-      $('#upPrev').classList.add('hide'); $('#upWarn').textContent = ''; $('#upMsg').textContent = '올렸습니다.';
-    } catch (e) { $('#upMsg').textContent = '실패: ' + e.message; $('#upGo').disabled = false; }
-  };
-  async function removeImage(i) {
-    const s = cfg.slides[i];
-    if (!confirm(`'${s.name}' 이미지를 삭제할까요? 되돌릴 수 없습니다.`)) return;
+      $('#upPrev').classList.add('hide'); $('#upWarn').textContent = ''; toast('이미지를 올렸습니다', 'ok');
+    } catch (e) {
+      m.textContent = '실패: ' + e.message; m.className = 'err'; $('#upGo').disabled = false;
+      if (e.auth) needTok(upload);
+    } finally { $('#upGo').textContent = '올리기'; if (!upData) $('#upGo').disabled = true; }
+  }
+  $('#upGo').onclick = upload;
+
+  async function removeImage(id) {
+    const i = cfg.slides.findIndex(x => x.id === id), s = cfg.slides[i];
+    if (!(await ask('이미지를 삭제할까요?', `'${s.name}' 이미지가 목록과 서버에서 삭제됩니다. 되돌릴 수 없습니다.`))) return;
+    if (API && !adminTok()) { needTok(() => removeImage(id)); return; }
     try {
       if (!API) localStorage.removeItem('led_asset_' + s.file);
-      else {
-        if (!adminTok()) { $('#auth').classList.remove('hide'); msg('관리자 토큰이 필요합니다.', 'err'); return; }
-        const r = await fetch(API, { method: 'POST', body: JSON.stringify({ action: 'delete_asset', token: adminTok(), file: s.file }) });
-        const j = await r.json();
-        if (j.error && j.error !== 'not found') throw new Error(j.error);
-      }
+      else { try { await post({ action: 'delete_asset', file: s.file }); } catch (e) { if (e.message !== 'not found') throw e; } }
       if (cfg.solo === s.id) cfg.solo = null;
       cfg.slides.splice(i, 1);
       if (!cfg.slides.some(x => x.on)) cfg.slides[0].on = true;
-      dirty = true; render(); await save();
-    } catch (e) { msg('삭제 실패: ' + e.message, 'err'); }
+      renderList(); await save();
+    } catch (e) { toast('삭제 실패: ' + e.message, 'err'); if (e.auth) needTok(() => removeImage(id)); }
   }
 
-  $('#save').onclick = save;
-  $('#unsolo').onclick = () => { cfg.solo = null; dirty = true; render(); };
-  $('#tokOk').onclick = () => { try { localStorage.setItem('led_admin_tok', $('#tok').value.trim()); } catch (e) { try { sessionStorage.setItem('led_admin_tok', $('#tok').value.trim()); } catch (e2) {} } $('#auth').classList.add('hide'); msg(''); };
   addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
-
   load(); pv();
 </script>
 </body>
