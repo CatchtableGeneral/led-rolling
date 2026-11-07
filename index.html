@@ -77,6 +77,8 @@
       }
       try { R[s.id](el, data); } catch (e) { /* 한 슬라이드가 실패해도 나머지는 계속 */ }
     });
+    /* 설정이 먼저 도착해 슬라이드 요소가 아직 없었다면(특히 단독 송출) 이제 만들어졌으니 지금 차례 슬라이드를 켬 */
+    if (active.length) show(active[pos % active.length].id);
   }
   async function refreshData() {
     let data;
