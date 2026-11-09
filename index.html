@@ -38,8 +38,6 @@
   </svg>
   </section>
 </div>
-<script src="config.js"></script>
-<script src="config.local.js" onerror="this.remove()"></script>
 <script src="slides.js"></script>
 <script src="demo-data.js"></script>
 <script src="assets.js"></script>
@@ -49,14 +47,21 @@
 <script src="slides-board.js"></script>
 <script src="slides-revenue.js"></script>
 <script>
-  const P = new URLSearchParams(location.search);
-  const CFG = window.LED_CONFIG || {};
-  const API = P.get('api') || CFG.api || '', TOKEN = P.get('token') || CFG.token || (() => { try { return localStorage.getItem('led_read_tok') || ''; } catch (e) { return ''; } })();
-  if (P.get('token')) { try { localStorage.setItem('led_read_tok', P.get('token')); } catch (e) {} }
-  const POLL_MS = 10 * 1000;               // 관리자 설정(ON/OFF·단독 송출) 확인 주기
-  const DATA_POLL_MS = 5 * 60 * 1000;      // 지표 데이터 확인 주기: 5분 (시트 값이 바뀌면 바로 반영)
+  /* 데이터 출처: Apps Script가 저장소(GitHub)에 써 둔 파일
+       config.json  관리자 설정 → GitHub API로 읽음(저장 즉시 반영, 1분 안팎). 조건부 요청(ETag)이라 바뀐 때만 내용을 받음
+       data.json    시트 지표   → raw 주소로 읽음(5분 캐시, 지표는 하루 단위라 충분)
+       uploads/…    업로드 이미지 → raw 주소(파일 이름이 매번 새로 생겨 캐시 영향 없음)
+     GitHub가 아닌 곳(내 PC 시험)에서 열면 같은 폴더의 파일을 읽음 */
+  const REPO = 'catchtablegeneral/led-rolling', BRANCH = 'main';
+  const ON_GITHUB = /\.github\.io$/.test(location.hostname);
+  const RAW = ON_GITHUB ? `https://raw.githubusercontent.com/${REPO}/${BRANCH}/` : '';
+  const API = ON_GITHUB ? `https://api.github.com/repos/${REPO}/contents/` : '';
+  const POLL_MS = 90 * 1000;               // 관리자 설정 확인 주기 (GitHub API는 로그인 없이 시간당 60회까지라 90초)
+  const DATA_POLL_MS = 5 * 60 * 1000;      // 지표 데이터 확인 주기: 5분
+  /* 관리자 화면의 미리보기: 주소 뒤 #cfg=… 로 설정을 직접 받으면 그 설정으로만 보여 줌 */
+  const PREVIEW = (() => { const m = /[#&]cfg=([^&]+)/.exec(location.hash); try { return m ? JSON.parse(decodeURIComponent(m[1])) : null; } catch (e) { return null; } })();
 
-  /* 지표 데이터: Apps Script(?api=)에서 받아 카드·그래프를 다시 그림. 없으면 데모 데이터 */
+  /* 지표 데이터를 받아 카드·그래프를 다시 그림. 못 받으면 마지막 데이터, 그것도 없으면 데모 데이터 */
   const LOGO = document.querySelector('image').getAttribute('href');
   let dataKey = '';
   /* 슬라이드 화면 만들기: 등록부(slides.js)의 기본 슬라이드마다 요소를 만들고 데이터로 그림 */
@@ -83,16 +88,14 @@
   async function refreshData() {
     let data;
     try {
-      if (!API) data = window.LED_DEMO;
-      else {
-        const r = await fetch(API + (API.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(TOKEN) + '&t=' + Date.now(), { cache: 'no-store' });
-        if (!r.ok) throw new Error(r.status);
-        data = await r.json();
-        if (!data.rows) throw new Error(data.error || 'no rows');
-        try { localStorage.setItem('led_data_cache', JSON.stringify(data)); } catch (e) {}
-      }
+      const r = await fetch(RAW + 'data.json?t=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) throw new Error(r.status);
+      data = await r.json();
+      if (!data.rows) throw new Error('no rows');
+      try { localStorage.setItem('led_data_cache', JSON.stringify(data)); } catch (e) {}
     } catch (e) {
       try { data = JSON.parse(localStorage.getItem('led_data_cache')); } catch (x) {}   // 실패 시 마지막 데이터 유지
+      if (!data) data = window.LED_DEMO;                                                // 처음부터 못 받으면 데모 데이터
       if (!data) return;
     }
     const k = JSON.stringify(data);
@@ -107,13 +110,34 @@
   }
   addEventListener('resize', fit); fit();
 
-  /* 설정 읽기: API가 있으면 Apps Script, 없으면 같은 브라우저의 로컬 설정(데모) */
+  /* 설정 읽기. 반환: 설정 객체 | null(저장된 설정 없음 → 기본) | undefined(바뀐 게 없음 → 지금 설정 유지) */
+  let cfgEtag = '', cfgLast = null, apiPauseUntil = 0;
   async function getConfig() {
-    if (!API) { try { return JSON.parse(localStorage.getItem('led_config')); } catch (e) { return null; } }
-    const r = await fetch(API + (API.includes('?') ? '&' : '?') + 'action=config&token=' + encodeURIComponent(TOKEN) + '&t=' + Date.now(), { cache: 'no-store' });
+    if (PREVIEW) return PREVIEW;
+    if (API && Date.now() > apiPauseUntil) {
+      try {
+        const h = { Accept: 'application/vnd.github.raw+json' };
+        if (cfgEtag) h['If-None-Match'] = cfgEtag;
+        const r = await fetch(API + 'config.json?ref=' + BRANCH, { headers: h, cache: 'no-store' });
+        const left = +r.headers.get('X-RateLimit-Remaining'), reset = +r.headers.get('X-RateLimit-Reset');
+        if (!isNaN(left) && left < 10 && reset) apiPauseUntil = reset * 1000;   // 같은 네트워크의 다른 사용량으로 한도가 거의 차면 잠시 raw로
+        if (r.status === 304) return undefined;
+        if (r.status === 404) return null;
+        if (r.ok) {
+          cfgEtag = r.headers.get('ETag') || '';
+          cfgLast = await r.json();
+          try { localStorage.setItem('led_config_cache', JSON.stringify(cfgLast)); } catch (e) {}
+          return cfgLast;
+        }
+        if (r.status === 403 || r.status === 429) apiPauseUntil = Date.now() + 10 * 60 * 1000;
+      } catch (e) { /* 아래 raw로 */ }
+    }
+    const r = await fetch(RAW + 'config.json?t=' + Date.now(), { cache: 'no-store' });   // raw: 최대 5분 캐시
+    if (r.status === 404) return null;
     if (!r.ok) throw new Error(r.status);
     const j = await r.json();
-    if (j.error) throw new Error(j.error);
+    if (cfgLast && j.updatedAt && cfgLast.updatedAt > j.updatedAt) return undefined;    // raw 캐시가 더 오래된 설정이면 무시
+    cfgLast = j;
     try { localStorage.setItem('led_config_cache', JSON.stringify(j)); } catch (e) {}
     return j;
   }
@@ -131,23 +155,14 @@
   }
 
   /* 업로드 이미지: 파일을 받아 오면 슬라이드 요소를 만들고, 받아 오기 전에는 순환에서 제외 */
-  const assets = new Map();   // 파일ID -> dataURL | 'loading' | 'fail'
-  async function loadAsset(file) {
+  const assets = new Map();   // 이미지 경로 -> 경로 | 'loading' | 'fail'
+  function loadAsset(file) {
     if (assets.has(file)) return;
     assets.set(file, 'loading');
-    try {
-      let url;
-      if (!API) url = localStorage.getItem('led_asset_' + file);
-      else {
-        const r = await fetch(API + (API.includes('?') ? '&' : '?') + 'action=asset&id=' + encodeURIComponent(file) + '&token=' + encodeURIComponent(TOKEN), { cache: 'no-store' });
-        const j = await r.json();
-        if (!j.data) throw new Error(j.error || 'no data');
-        url = 'data:' + j.mime + ';base64,' + j.data;
-      }
-      if (!url) throw new Error('empty');
-      assets.set(file, url);
-    } catch (e) { assets.set(file, 'fail'); setTimeout(() => assets.delete(file), 5 * 60 * 1000); }  // 실패하면 5분 뒤 다시 시도
-    refresh();
+    const im = new Image();
+    im.onload = () => { assets.set(file, file); refresh(); };
+    im.onerror = () => { assets.set(file, 'fail'); setTimeout(() => assets.delete(file), 5 * 60 * 1000); refresh(); };  // 실패하면 5분 뒤 다시 시도
+    im.src = RAW + file;
   }
   const assetReady = f => { const v = assets.get(f); return v && v !== 'loading' && v !== 'fail'; };
 
@@ -166,8 +181,8 @@
 
   async function refresh() {
     let cfg;
-    try { cfg = await getConfig(); }
-    catch (e) { try { cfg = JSON.parse(localStorage.getItem('led_config_cache')); } catch (x) {} if (!cfg) return; } // 실패 시 마지막 설정 유지
+    try { cfg = await getConfig(); if (cfg === undefined) cfg = cfgLast; }
+    catch (e) { try { cfg = JSON.parse(localStorage.getItem('led_config_cache')); } catch (x) {} } // 실패 시 마지막 설정 유지(없으면 기본 설정)
     const customs = window.normalizeConfig(cfg).slides.filter(s => s.type === 'image');
     customs.forEach(c => loadAsset(c.file));
     syncCustomSections(customs);
@@ -185,7 +200,7 @@
 
   refresh();
   refreshData();
-  setInterval(refresh, POLL_MS);
+  if (!PREVIEW) setInterval(refresh, POLL_MS);
   setInterval(refreshData, DATA_POLL_MS);
   addEventListener('storage', refresh);  // 데모 모드: 같은 브라우저에서 즉시 반영
   setTimeout(() => location.reload(), 24 * 3600 * 1000);
