@@ -47,16 +47,19 @@
 <script src="slides-board.js"></script>
 <script src="slides-revenue.js"></script>
 <script>
-  /* 데이터 출처: Apps Script가 저장소(GitHub)에 써 둔 파일
-       config.json  관리자 설정 → GitHub API로 읽음(저장 즉시 반영, 1분 안팎). 조건부 요청(ETag)이라 바뀐 때만 내용을 받음
-       data.json    시트 지표   → raw 주소로 읽음(5분 캐시, 지표는 하루 단위라 충분)
-       uploads/…    업로드 이미지 → raw 주소(파일 이름이 매번 새로 생겨 캐시 영향 없음)
-     GitHub가 아닌 곳(내 PC 시험)에서 열면 같은 폴더의 파일을 읽음 */
+  /* 데이터 출처
+     1) Firebase 실시간 DB(FB_URL)가 있으면: 설정·지표를 실시간 스트림으로 받음 → 관리자 저장 1~2초 뒤 반영. 끊기면 15초마다 다시 읽음
+     2) 없으면 GitHub: config.json 은 GitHub API(ETag 조건부, 90초, 네트워크당 시간당 60회 한도 → 임박하면 raw로), data.json 은 raw(5분 캐시)
+     업로드 이미지는 항상 GitHub raw(uploads/…, 파일 이름이 매번 새로 생겨 캐시 영향 없음)
+     GitHub가 아닌 곳(내 PC 시험)에서 열면 같은 폴더의 파일을 읽음. 시험용: ?fb=<주소> 로 Firebase 주소를 바꿔 넣을 수 있음 */
+  const P = new URLSearchParams(location.search);
+  const FB_URL = 'https://wad-ga-agent-default-rtdb.asia-southeast1.firebasedatabase.app';   // Firebase 실시간 DB 주소 (예: https://xxx-default-rtdb.asia-southeast1.firebasedatabase.app). 비우면 GitHub만 사용
+  const FB = (P.get('fb') || FB_URL).replace(/\/+$/, '');
   const REPO = 'catchtablegeneral/led-rolling', BRANCH = 'main';
   const ON_GITHUB = /\.github\.io$/.test(location.hostname);
   const RAW = ON_GITHUB ? `https://raw.githubusercontent.com/${REPO}/${BRANCH}/` : '';
   const API = ON_GITHUB ? `https://api.github.com/repos/${REPO}/contents/` : '';
-  const POLL_MS = 90 * 1000;               // 관리자 설정 확인 주기 (GitHub API는 로그인 없이 시간당 60회까지라 90초)
+  const POLL_MS = FB ? 15 * 1000 : 90 * 1000;   // 설정 확인 주기: Firebase 는 스트림이 끊겼을 때만 15초, GitHub API 는 한도 때문에 90초
   const DATA_POLL_MS = 5 * 60 * 1000;      // 지표 데이터 확인 주기: 5분
   /* 관리자 화면의 미리보기: 주소 뒤 #cfg=… 로 설정을 직접 받으면 그 설정으로만 보여 줌 */
   const PREVIEW = (() => { const m = /[#&]cfg=([^&]+)/.exec(location.hash); try { return m ? JSON.parse(decodeURIComponent(m[1])) : null; } catch (e) { return null; } })();
@@ -85,23 +88,58 @@
     /* 설정이 먼저 도착해 슬라이드 요소가 아직 없었다면(특히 단독 송출) 이제 만들어졌으니 지금 차례 슬라이드를 켬 */
     if (active.length) show(active[pos % active.length].id);
   }
-  async function refreshData() {
-    let data;
-    try {
-      const r = await fetch(RAW + 'data.json?t=' + Date.now(), { cache: 'no-store' });
-      if (!r.ok) throw new Error(r.status);
-      data = await r.json();
-      if (!data.rows) throw new Error('no rows');
-      try { localStorage.setItem('led_data_cache', JSON.stringify(data)); } catch (e) {}
-    } catch (e) {
-      try { data = JSON.parse(localStorage.getItem('led_data_cache')); } catch (x) {}   // 실패 시 마지막 데이터 유지
-      if (!data) data = window.LED_DEMO;                                                // 처음부터 못 받으면 데모 데이터
-      if (!data) return;
-    }
+  function applyData(data) {
+    if (!data || !data.rows) return;
+    try { localStorage.setItem('led_data_cache', JSON.stringify(data)); } catch (e) {}
     const k = JSON.stringify(data);
     if (k === dataKey) return;
     dataKey = k;
     mountSlides(data);
+  }
+  async function refreshData() {
+    if (FB && fbLive) return;                 // 실시간 스트림이 살아 있으면 따로 읽을 필요 없음
+    let data;
+    try {
+      const r = await fetch(FB ? FB + '/led/data.json' : RAW + 'data.json?t=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) throw new Error(r.status);
+      data = await r.json();
+      if (typeof data === 'string') data = JSON.parse(data);
+      if (!data || !data.rows) throw new Error('no rows');
+    } catch (e) {
+      if (dataKey) return;                                                             // 이미 그려진 데이터가 있으면 유지
+      try { data = JSON.parse(localStorage.getItem('led_data_cache')); } catch (x) {}   // 실패 시 마지막 데이터
+      if (!data) data = window.LED_DEMO;                                                // 처음부터 못 받으면 데모 데이터
+      if (!data) return;
+    }
+    applyData(data);
+  }
+
+  /* Firebase 실시간 스트림: /led 아래(config, data 가 JSON 문자열)를 통째로 구독. 바뀌면 바로 반영 */
+  let fbLive = false, fbState = null;
+  function fbSet(path, value, merge) {
+    const seg = path.split('/').filter(Boolean);
+    if (!seg.length) { fbState = merge ? Object.assign(fbState || {}, value || {}) : (value || {}); return; }
+    fbState = fbState || {};
+    let o = fbState;
+    for (let i = 0; i < seg.length - 1; i++) o = o[seg[i]] = (o[seg[i]] && typeof o[seg[i]] === 'object') ? o[seg[i]] : {};
+    const k = seg[seg.length - 1];
+    if (value == null) delete o[k]; else if (merge && typeof value === 'object') o[k] = Object.assign(o[k] || {}, value); else o[k] = value;
+  }
+  const parseStr = v => { try { return typeof v === 'string' ? JSON.parse(v) : v; } catch (e) { return null; } };
+  function fbStart() {
+    if (!FB || PREVIEW) return;
+    const es = new EventSource(FB + '/led.json');
+    const on = merge => e => {
+      let m; try { m = JSON.parse(e.data); } catch (x) { return; }
+      if (!m || typeof m.path !== 'string') return;
+      fbSet(m.path, m.data, merge); fbLive = true;
+      if (fbState && 'data' in fbState) applyData(parseStr(fbState.data));
+      if (fbState && 'config' in fbState) { const c = parseStr(fbState.config); if (c) { cfgLast = c; try { localStorage.setItem('led_config_cache', JSON.stringify(c)); } catch (x) {} applyConfig(c); } }
+    };
+    es.addEventListener('put', on(false));
+    es.addEventListener('patch', on(true));
+    es.addEventListener('cancel', () => { fbLive = false; });
+    es.onerror = () => { fbLive = false; };    // 브라우저가 알아서 다시 연결함. 그동안은 15초 폴링
   }
 
   function fit() {
@@ -160,8 +198,8 @@
     if (assets.has(file)) return;
     assets.set(file, 'loading');
     const im = new Image();
-    im.onload = () => { assets.set(file, file); refresh(); };
-    im.onerror = () => { assets.set(file, 'fail'); setTimeout(() => assets.delete(file), 5 * 60 * 1000); refresh(); };  // 실패하면 5분 뒤 다시 시도
+    im.onload = () => { assets.set(file, file); applyConfig(curCfg); };
+    im.onerror = () => { assets.set(file, 'fail'); setTimeout(() => assets.delete(file), 5 * 60 * 1000); applyConfig(curCfg); };  // 실패하면 5분 뒤 다시 시도
     im.src = RAW + file;
   }
   const assetReady = f => { const v = assets.get(f); return v && v !== 'loading' && v !== 'fail'; };
@@ -180,9 +218,21 @@
   }
 
   async function refresh() {
+    if (FB && fbLive && !PREVIEW) return;      // 실시간 스트림이 살아 있으면 폴링 불필요
     let cfg;
-    try { cfg = await getConfig(); if (cfg === undefined) cfg = cfgLast; }
-    catch (e) { try { cfg = JSON.parse(localStorage.getItem('led_config_cache')); } catch (x) {} } // 실패 시 마지막 설정 유지(없으면 기본 설정)
+    try {
+      if (FB && !PREVIEW) {
+        const r = await fetch(FB + '/led/config.json', { cache: 'no-store' });
+        if (!r.ok) throw new Error(r.status);
+        cfg = parseStr(await r.json());
+        if (cfg) { cfgLast = cfg; try { localStorage.setItem('led_config_cache', JSON.stringify(cfg)); } catch (x) {} }
+      } else { cfg = await getConfig(); if (cfg === undefined) cfg = cfgLast; }
+    } catch (e) { try { cfg = JSON.parse(localStorage.getItem('led_config_cache')); } catch (x) {} } // 실패 시 마지막 설정 유지(없으면 기본 설정)
+    applyConfig(cfg);
+  }
+  let curCfg = null;
+  function applyConfig(cfg) {
+    curCfg = cfg;
     const customs = window.normalizeConfig(cfg).slides.filter(s => s.type === 'image');
     customs.forEach(c => loadAsset(c.file));
     syncCustomSections(customs);
@@ -198,6 +248,7 @@
     step();
   }
 
+  fbStart();
   refresh();
   refreshData();
   if (!PREVIEW) setInterval(refresh, POLL_MS);
