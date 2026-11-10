@@ -1,7 +1,9 @@
 /* 송출 채널 등록부 — 송출 화면(index.html)과 관리자(Admin)가 함께 사용합니다.
    채널마다 화면 크기·비율과 기본 슬라이드가 다릅니다.
      led : 카페테리아 LED (3400×1000, 지표 12장)      → index.html
-     tv  : 사무실 TV     (1920×1080, 기본 로고 화면)   → index.html?ch=tv
+     tv  : 사무실 TV     (1920×1080, 리더십 원칙 10장) → index.html?ch=tv
+           TV 기본 화면은 이미지 파일(tv/01.png …)입니다. 원본: 구글 슬라이드 '[판교] 일반 TV'.
+           내용이 바뀌면 같은 이름의 파일을 1920×1080 PNG로 바꿔 올리면 됩니다.
    기본 슬라이드를 추가할 때: 해당 채널 slides 에 한 줄 추가 + index.html 에 그리는 코드 추가.
    업로드한 이미지 슬라이드는 여기에 적지 않고 관리자 설정(config)에 type:'image' 로 저장됩니다(채널별 설정). */
 window.CHANNELS = {
@@ -25,7 +27,16 @@ window.CHANNELS = {
   tv: {
     name: '사무실 TV', desc: '사무실 TV', w: 1920, h: 1080, ratio: '16:9', cfgKey: 'tvconfig',
     slides: [
-      { id: 'tvlogo', name: '기본 화면 (로고)', sec: 10 },
+      { id: 'tv01', name: 'Leadership Principles (표지)', sec: 10, img: 'tv/01.png' },
+      { id: 'tv02', name: '결과로 말한다', sec: 10, img: 'tv/02.png' },
+      { id: 'tv03', name: '고객 집착', sec: 10, img: 'tv/03.png' },
+      { id: 'tv04', name: '속도가 경쟁력', sec: 10, img: 'tv/04.png' },
+      { id: 'tv05', name: '우리≠고객', sec: 10, img: 'tv/05.png' },
+      { id: 'tv06', name: '오너십', sec: 10, img: 'tv/06.png' },
+      { id: 'tv07', name: '다이브 딥', sec: 10, img: 'tv/07.png' },
+      { id: 'tv08', name: '효율이 곧 전략', sec: 10, img: 'tv/08.png' },
+      { id: 'tv09', name: '최고 인재 채용과 육성', sec: 10, img: 'tv/09.png' },
+      { id: 'tv10', name: '더더더', sec: 10, img: 'tv/10.png' },
     ],
   },
 };
