@@ -1,6 +1,8 @@
 /* 공통 대시보드 틀 (슬라이드 2~12) — 좌측 로고·문구·목록, 상단 카드 4개, 검은 패널.
    좌표는 원본 슬라이드 이미지(1195x351 안쪽 영역) 픽셀 기준이며, 그리는 순간 3400x1000 캔버스로 환산합니다.
-   글자는 늘이거나 줄이지 않고 글자 크기(fs)로만 맞춥니다. 슬라이드별 글자 위치 보정값은 layouts.js 에 있습니다. */
+   글자는 늘이거나 줄이지 않고 글자 크기(fs)로만 맞춥니다. 슬라이드별 글자 위치 보정값은 layouts.js 에 있습니다.
+   송출 PC 글꼴(맑은 고딕 등)은 맥 글꼴보다 넓어 같은 좌표에서도 글자가 겹칠 수 있으므로, 그린 뒤 fit()이 실제 길이를 재서
+   넘치는 글자는 줄이고 '*Last Updated'는 제목의 실제 끝 뒤에 붙입니다(index.html 이 슬라이드를 만든 직후 호출). */
 (function () {
   const S = 3400 / 1195;
   const X = x => (x - 1) * S, Y = y => (y - 1) * S, L = v => v * S;
@@ -59,6 +61,48 @@
     pd: { x: 302, y: 136, fs: 9, fill: '#ffffff', w: 400, ff: K },
   };
 
+  /* ---- 글자 넘침 방지 ----
+     attrs(id): 글자마다 오른쪽 한계(data-fit, 캔버스 px)를 달아 둠. 왼쪽 문구는 검은 패널 앞까지, 카드 글자는 카드 안까지, 패널 제목·설명은 패널 안까지.
+     fit(root): 그려진 SVG에서 실제 길이를 재어 한계를 넘는 글자는 넘는 비율만큼 글자 크기를 줄이고(최소 60%),
+                '*Last Updated'(pu)는 제목(pt)의 실제 끝 + GAP_PU 위치로 옮김 */
+  const PAD = 5, GAP_PU = 7.5;   // 맥에서 맞춘 원본 위치와 같은 간격(원본 px)
+  function limitOf(id) {
+    const p = BASE.panel, c = BASE.cards;
+    if (/^(h[12]|l\d)$/.test(id)) return X(p.x0 - 3);
+    const m = /^c(\d)/.exec(id);
+    if (m && c[+m[1] - 1]) return X(c[+m[1] - 1].x1 - PAD);
+    if (id === 'pt' || id === 'pd' || id === 'pu') return X(p.x1 - PAD);
+    return null;
+  }
+  function attrs(id) {
+    const lim = limitOf(id);
+    let s = ` data-id="${id}"`;
+    if (lim != null) s += ` data-fit="${lim.toFixed(1)}"`;
+    if (id === 'pu') s += ` data-after="pt" data-gap="${L(GAP_PU).toFixed(1)}"`;
+    return s;
+  }
+  function fit(root) {
+    const svg = root && (root.tagName === 'svg' ? root : root.querySelector && root.querySelector('svg'));
+    if (!svg || !svg.isConnected) return;
+    const by = {};
+    svg.querySelectorAll('text[data-id]').forEach(t => { by[t.dataset.id] = t; });
+    const len = t => { try { return t.getComputedTextLength(); } catch (e) { return 0; } };
+    const shrink = t => {
+      const max = +t.dataset.fit, x = +t.getAttribute('x'), l = len(t);
+      if (!max || !l || x + l <= max) return;
+      const k = Math.max(0.6, (max - x) / l);
+      [t, ...t.querySelectorAll('tspan')].forEach(e => {
+        ['font-size', 'dx'].forEach(a => { const v = parseFloat(e.getAttribute(a)); if (v) e.setAttribute(a, (v * k).toFixed(2)); });
+      });
+    };
+    svg.querySelectorAll('text[data-fit]').forEach(t => { if (!t.dataset.after) shrink(t); });
+    svg.querySelectorAll('text[data-after]').forEach(t => {
+      const ref = by[t.dataset.after], l = ref ? len(ref) : 0;
+      if (l) t.setAttribute('x', (+ref.getAttribute('x') + l + (+t.dataset.gap || 0)).toFixed(1));
+      shrink(t);
+    });
+  }
+
   /* spec → 글자 목록. spec: {heading:[a,b], list:[..], active:i, cards:[{t,v,d}|…], title, updated, desc, key} */
   function texts(spec) {
     const ovr = (window.LAYOUT_OVR && window.LAYOUT_OVR[spec.key]) || {};
@@ -90,7 +134,7 @@
 
   function txt(o) {
     const body = o.segs ? o.segs.map(([t, w]) => `<tspan font-weight="${w}">${esc(t)}</tspan>`).join('') : esc(o.t);
-    return `<text x="${X(o.x)}" y="${Y(o.y)}" font-size="${L(o.fs)}" fill="${o.fill}" font-weight="${o.w}"` +
+    return `<text${attrs(o.id)} x="${X(o.x)}" y="${Y(o.y)}" font-size="${L(o.fs)}" fill="${o.fill}" font-weight="${o.w}"` +
       `${o.st ? ` font-style="${o.st}"` : ''} font-family="${o.ff}">${body}</text>`;
   }
 
@@ -126,7 +170,7 @@
       if (m && m[2] === 'd' && !window.Board.SPLIT) return;            // 증감 문구는 숫자 뒤에 이어서 그림(보정 모드에서는 따로)
       if (m && m[2] === 'n' && !window.Board.SPLIT) {
         const d = by['c' + m[1] + 'd'], gap = (d && d.gap != null ? d.gap : 6.5);
-        s += `<text x="${X(o.x)}" y="${Y(o.y)}" font-size="${L(o.fs)}" fill="${o.fill}" font-weight="${o.w}" font-family="${o.ff}">${esc(o.t)}` +
+        s += `<text${attrs(o.id)} x="${X(o.x)}" y="${Y(o.y)}" font-size="${L(o.fs)}" fill="${o.fill}" font-weight="${o.w}" font-family="${o.ff}">${esc(o.t)}` +
              `<tspan dx="${L(gap)}" dy="${L(d.y - o.y)}" font-size="${L(d.fs)}" fill="${d.fill}" font-weight="${d.w}">${esc(d.t)}</tspan></text>`;
         return;
       }
@@ -216,5 +260,5 @@
     return s;
   }
 
-  window.Board = { S, X, Y, L, K, N, ORANGE, f, esc, BASE, T0, texts, render, figures, bars, lineChart, line, text, dot, rect };
+  window.Board = { S, X, Y, L, K, N, ORANGE, f, esc, BASE, T0, texts, render, figures, bars, lineChart, line, text, dot, rect, attrs, fit };
 })();
