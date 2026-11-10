@@ -65,7 +65,7 @@
      attrs(id): 글자마다 오른쪽 한계(data-fit, 캔버스 px)를 달아 둠. 왼쪽 문구는 검은 패널 앞까지, 카드 글자는 카드 안까지, 패널 제목·설명은 패널 안까지.
      fit(root): 그려진 SVG에서 실제 길이를 재어 한계를 넘는 글자는 넘는 비율만큼 글자 크기를 줄이고(최소 60%),
                 '*Last Updated'(pu)는 제목(pt)의 실제 끝 + GAP_PU 위치로 옮김 */
-  const PAD = 5, GAP_PU = 7.5;   // 맥에서 맞춘 원본 위치와 같은 간격(원본 px)
+  const PAD = 7, GAP_PU = 7.5, SAFE = 2;   // PAD: 카드 테두리 안쪽 여유(원본 px), GAP_PU: 제목 끝↔Last Updated 간격(원본 px, 맥 기준값), SAFE: 측정 오차 여유(캔버스 px)
   function limitOf(id) {
     const p = BASE.panel, c = BASE.cards;
     if (/^(h[12]|l\d)$/.test(id)) return X(p.x0 - 3);
@@ -86,10 +86,16 @@
     if (!svg || !svg.isConnected) return;
     const by = {};
     svg.querySelectorAll('text[data-id]').forEach(t => { by[t.dataset.id] = t; });
-    const len = t => { try { return t.getComputedTextLength(); } catch (e) { return 0; } };
+    /* 길이는 두 가지로 재서 큰 쪽을 씀: 글자 전진폭 합(getComputedTextLength)과 실제 상자(getBBox). 글꼴에 따라 둘이 조금 다름 */
+    const len = t => {
+      let l = 0;
+      try { l = t.getComputedTextLength() || 0; } catch (e) {}
+      try { const bb = t.getBBox(); if (bb && bb.width) l = Math.max(l, bb.x + bb.width - (+t.getAttribute('x'))); } catch (e) {}
+      return l;
+    };
     const shrink = t => {
-      const max = +t.dataset.fit, x = +t.getAttribute('x'), l = len(t);
-      if (!max || !l || x + l <= max) return;
+      const max = (+t.dataset.fit) - SAFE, x = +t.getAttribute('x'), l = len(t);
+      if (!t.dataset.fit || !l || x + l <= max) return;
       const k = Math.max(0.6, (max - x) / l);
       [t, ...t.querySelectorAll('tspan')].forEach(e => {
         ['font-size', 'dx'].forEach(a => { const v = parseFloat(e.getAttribute(a)); if (v) e.setAttribute(a, (v * k).toFixed(2)); });
