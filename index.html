@@ -198,8 +198,11 @@
     if (assets.has(file)) return;
     assets.set(file, 'loading');
     const im = new Image();
-    im.onload = () => { assets.set(file, file); applyConfig(curCfg); };
-    im.onerror = () => { assets.set(file, 'fail'); setTimeout(() => assets.delete(file), 5 * 60 * 1000); applyConfig(curCfg); };  // 실패하면 5분 뒤 다시 시도
+    im.onload = () => { assets.set(file, RAW + file); applyConfig(curCfg); };
+    im.onerror = () => {   // 방금 올린 파일은 몇 초 뒤에야 받아지기도 하므로 20초 뒤 다시 시도
+      assets.set(file, 'fail'); applyConfig(curCfg);
+      setTimeout(() => { if (assets.get(file) === 'fail') { assets.delete(file); applyConfig(curCfg); } }, 20 * 1000);
+    };
     im.src = RAW + file;
   }
   const assetReady = f => { const v = assets.get(f); return v && v !== 'loading' && v !== 'fail'; };
@@ -212,6 +215,7 @@
       const sec = document.createElement('section');
       sec.className = 'slide custom'; sec.dataset.id = c.id;
       const img = document.createElement('img'); img.src = assets.get(c.file);
+      img.onerror = () => { sec.remove(); assets.delete(c.file); setTimeout(() => applyConfig(curCfg), 20 * 1000); };  // 표시 중 실패하면 빼고 다시 시도
       sec.appendChild(img);
       document.getElementById('stage').appendChild(sec);
     });
