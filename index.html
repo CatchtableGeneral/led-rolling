@@ -38,20 +38,21 @@
   </svg>
   </section>
 </div>
-<script src="slides.js"></script>
-<script src="demo-data.js"></script>
-<script src="assets.js"></script>
-<script src="board.js"></script>
-<script src="layouts.js"></script>
-<script src="slide-stores.js"></script>
-<script src="slides-board.js"></script>
-<script src="slides-revenue.js"></script>
+<script src="slides.js?v=20261110-4"></script>
+<script src="demo-data.js?v=20261110-4"></script>
+<script src="assets.js?v=20261110-4"></script>
+<script src="board.js?v=20261110-4"></script>
+<script src="layouts.js?v=20261110-4"></script>
+<script src="slide-stores.js?v=20261110-4"></script>
+<script src="slides-board.js?v=20261110-4"></script>
+<script src="slides-revenue.js?v=20261110-4"></script>
 <script>
   /* 데이터 출처
      1) Firebase 실시간 DB(FB_URL)가 있으면: 설정·지표를 실시간 스트림으로 받음 → 관리자 저장 1~2초 뒤 반영. 끊기면 15초마다 다시 읽음
      2) 없으면 GitHub: config.json 은 GitHub API(ETag 조건부, 90초, 네트워크당 시간당 60회 한도 → 임박하면 raw로), data.json 은 raw(5분 캐시)
      업로드 이미지는 항상 GitHub raw(uploads/…, 파일 이름이 매번 새로 생겨 캐시 영향 없음)
      GitHub가 아닌 곳(내 PC 시험)에서 열면 같은 폴더의 파일을 읽음. 시험용: ?fb=<주소> 로 Firebase 주소를 바꿔 넣을 수 있음 */
+  const BUILD = '20261110-4';   // 파일을 고쳐 올릴 때마다 바꿈(위 <script src=…?v=> 와 같은 값). 송출 화면이 10분마다 확인해 바뀌었으면 스스로 새로고침
   const P = new URLSearchParams(location.search);
   const FB_URL = 'https://wad-ga-agent-default-rtdb.asia-southeast1.firebasedatabase.app';   // Firebase 실시간 DB 주소 (예: https://xxx-default-rtdb.asia-southeast1.firebasedatabase.app). 비우면 GitHub만 사용
   const FB = (P.get('fb') || FB_URL).replace(/\/+$/, '');
@@ -273,6 +274,15 @@
   setInterval(refreshData, DATA_POLL_MS);
   addEventListener('storage', refresh);  // 데모 모드: 같은 브라우저에서 즉시 반영
   setTimeout(() => location.reload(), 24 * 3600 * 1000);
+  /* 새 파일이 올라왔는지 10분마다 확인(index.html 의 BUILD 값 비교) → 바뀌었으면 새로고침. LED PC 를 만지지 않아도 수정본이 반영되게 */
+  if (ON_GITHUB && !PREVIEW) setInterval(async () => {
+    try {
+      const r = await fetch(location.pathname + '?u=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) return;
+      const m = /const BUILD = '([^']+)'/.exec(await r.text());
+      if (m && m[1] !== BUILD) location.reload();
+    } catch (e) {}
+  }, 10 * 60 * 1000);
 </script>
 </body>
 </html>
