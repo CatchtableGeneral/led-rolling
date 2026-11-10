@@ -8,6 +8,7 @@
   const K = "'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif";
   const N = "'Helvetica Neue',Helvetica,Arial,sans-serif";
   const ORANGE = '#FF3500', f = n => n.toLocaleString('ko-KR');
+  const A = id => (window.Board && window.Board.attrs ? window.Board.attrs(id) : '');   // 글자 넘침 방지 표식(board.js fit 이 사용)
 
   /*LAYOUT*/
   const LAYOUT = {
@@ -138,7 +139,7 @@
       if (m && m[2] === 'd') return;                               // 전일 대비는 숫자 뒤에 이어서 그림
       if (m && m[2] === 'n') {
         const i = +m[1] - 1, d = T['c' + m[1] + 'd'], card = D.cards[i];
-        s += `<text x="${X(o.x)}" y="${Y(o.y)}" font-size="${L(o.fs)}" fill="${o.fill}" font-weight="${o.w}" font-family="${o.ff}">${card.v}` +
+        s += `<text${A(o.id)} x="${X(o.x)}" y="${Y(o.y)}" font-size="${L(o.fs)}" fill="${o.fill}" font-weight="${o.w}" font-family="${o.ff}">${card.v}` +
              `<tspan dx="${L(6.5)}" dy="${L(d.y - o.y)}" font-size="${L(d.fs)}" fill="${d.fill}" font-weight="${d.w}">${card.d}</tspan></text>`;
         return;
       }
@@ -148,7 +149,7 @@
   }
 
   function txt(o) {
-    return `<text x="${X(o.x)}" y="${Y(o.y)}" font-size="${L(o.fs)}" fill="${o.fill}" font-weight="${o.w}"` +
+    return `<text${A(o.id)} x="${X(o.x)}" y="${Y(o.y)}" font-size="${L(o.fs)}" fill="${o.fill}" font-weight="${o.w}"` +
            `${o.st ? ` font-style="${o.st}"` : ''} font-family="${o.ff}">${o.t}</text>`;
   }
 
