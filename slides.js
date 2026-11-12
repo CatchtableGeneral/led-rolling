@@ -4,6 +4,10 @@
      tv  : 사무실 TV     (1920×1080, 리더십 원칙 10장) → index.html?ch=tv
            TV 기본 화면은 이미지 파일(tv/01.png …)입니다. 원본: 구글 슬라이드 '[판교] 일반 TV'.
            내용이 바뀌면 같은 이름의 파일을 1920×1080 PNG로 바꿔 올리면 됩니다.
+     tv2 : 송출 3       (1920×1080, 기본 화면 없음 · 올린 이미지만) → index.html?ch=tv2
+     tv3 : 송출 4       (1920×1080, 기본 화면 없음 · 올린 이미지만) → index.html?ch=tv3
+           켜진 이미지가 하나도 없으면 송출 화면에는 검은 바탕에 로고(대기 화면)가 나옵니다.
+           이름·크기는 아래 name/desc/w/h/ratio 만 바꾸면 됩니다(Code.gs 의 CHANNELS_ 와 id 를 맞출 것).
    기본 슬라이드를 추가할 때: 해당 채널 slides 에 한 줄 추가 + index.html 에 그리는 코드 추가.
    업로드한 이미지 슬라이드는 여기에 적지 않고 관리자 설정(config)에 type:'image' 로 저장됩니다(채널별 설정). */
 window.CHANNELS = {
@@ -39,6 +43,8 @@ window.CHANNELS = {
       { id: 'tv10', name: '더더더', sec: 10, img: 'tv/10.png' },
     ],
   },
+  tv2: { name: '송출 3', desc: '송출 3', w: 1920, h: 1080, ratio: '16:9', cfgKey: 'tv2config', slides: [] },
+  tv3: { name: '송출 4', desc: '송출 4', w: 1920, h: 1080, ratio: '16:9', cfgKey: 'tv3config', slides: [] },
 };
 window.chanOf = function (ch) { return window.CHANNELS[ch] || window.CHANNELS.led; };
 window.SLIDES = window.CHANNELS.led.slides;   // 이전 코드 호환(LED 기본 슬라이드 목록)
