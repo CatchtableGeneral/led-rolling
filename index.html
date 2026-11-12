@@ -16,6 +16,7 @@
   .slide.pic { background:#000; }
   .slide.standby { background:#000; display:flex; align-items:center; justify-content:center; }
   .slide.standby img { width:18%; opacity:.55; }
+  #stage.tall .slide.standby img { width:40%; }   /* 세로 화면은 폭이 좁아 로고를 더 크게 */
   svg { display:block; width:100%; height:100%; }
   .f { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; }
   .k { font-family:'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif; }
@@ -46,27 +47,28 @@
      본 스크립트가 정상으로 시작하면 window.__ledOk = true 로 표시해 이 예약이 무시됨 */
   setTimeout(function () { if (!window.__ledOk) location.reload(); }, 2 * 60 * 1000);
 </script>
-<script src="slides.js?v=20261112-1"></script>
-<script src="demo-data.js?v=20261112-1"></script>
-<script src="assets.js?v=20261112-1"></script>
-<script src="board.js?v=20261112-1"></script>
-<script src="layouts.js?v=20261112-1"></script>
-<script src="slide-stores.js?v=20261112-1"></script>
-<script src="slides-board.js?v=20261112-1"></script>
-<script src="slides-revenue.js?v=20261112-1"></script>
+<script src="slides.js?v=20261112-2"></script>
+<script src="demo-data.js?v=20261112-2"></script>
+<script src="assets.js?v=20261112-2"></script>
+<script src="board.js?v=20261112-2"></script>
+<script src="layouts.js?v=20261112-2"></script>
+<script src="slide-stores.js?v=20261112-2"></script>
+<script src="slides-board.js?v=20261112-2"></script>
+<script src="slides-revenue.js?v=20261112-2"></script>
 <script>
   /* 데이터 출처
      1) Firebase 실시간 DB(FB_URL)가 있으면: 설정·지표를 실시간 스트림으로 받음 → 관리자 저장 1~2초 뒤 반영. 끊기면 15초마다 다시 읽음
      2) 없으면 GitHub: config.json 은 GitHub API(ETag 조건부, 90초, 네트워크당 시간당 60회 한도 → 임박하면 raw로), data.json 은 raw(5분 캐시)
      업로드 이미지는 항상 GitHub raw(uploads/…, 파일 이름이 매번 새로 생겨 캐시 영향 없음)
      GitHub가 아닌 곳(내 PC 시험)에서 열면 같은 폴더의 파일을 읽음. 시험용: ?fb=<주소> 로 Firebase 주소를 바꿔 넣을 수 있음 */
-  const BUILD = '20261112-1';   // 파일을 고쳐 올릴 때마다 바꿈(위 <script src=…?v=> 와 같은 값). 송출 화면이 10분마다 확인해 바뀌었으면 스스로 새로고침
+  const BUILD = '20261112-2';   // 파일을 고쳐 올릴 때마다 바꿈(위 <script src=…?v=> 와 같은 값). 송출 화면이 10분마다 확인해 바뀌었으면 스스로 새로고침
   const P = new URLSearchParams(location.search);
-  /* 송출 채널: index.html = 카페테리아 LED(3400×1000), ?ch=tv = 사무실 TV, ?ch=tv2 = 송출 3, ?ch=tv3 = 송출 4 (1920×1080). 등록부는 slides.js */
+  /* 송출 채널: index.html = 카페테리아 LED(3400×1000), ?ch=tv = 사무실 TV, (1920×1080), ?ch=tv2 = 카페테리아 세로 TV, ?ch=tv3 = 스낵바 세로 TV (1080×1920). 등록부는 slides.js */
   const CH = window.CHANNELS[P.get('ch')] ? P.get('ch') : 'led';
   const CHAN = window.CHANNELS[CH], W = CHAN.w, H = CHAN.h, CFG_FILE = CHAN.cfgKey + '.json', CFG_CACHE = CH + '_config_cache';
   document.getElementById('stage').style.setProperty('--w', W + 'px');
   document.getElementById('stage').style.setProperty('--h', H + 'px');
+  if (H > W) document.getElementById('stage').classList.add('tall');
   const FB_URL = 'https://wad-ga-agent-default-rtdb.asia-southeast1.firebasedatabase.app';   // Firebase 실시간 DB 주소 (예: https://xxx-default-rtdb.asia-southeast1.firebasedatabase.app). 비우면 GitHub만 사용
   const FB = (P.get('fb') || FB_URL).replace(/\/+$/, '');
   const REPO = 'catchtablegeneral/led-rolling', BRANCH = 'main';
@@ -266,7 +268,7 @@
     applyConfig(cfg);
   }
   let curCfg = null;
-  /* 대기 화면: 검은 바탕에 로고만. 기본 화면이 없는 채널(송출 3·4)에서 켜 둔 이미지가 하나도 없을 때 */
+  /* 대기 화면: 검은 바탕에 로고만. 기본 화면이 없는 채널(세로 TV 2대)에서 켜 둔 이미지가 하나도 없을 때 */
   function standby() {
     if (document.querySelector('.slide[data-id="standby"]')) return;
     const sec = document.createElement('section'); sec.className = 'slide standby'; sec.dataset.id = 'standby';
