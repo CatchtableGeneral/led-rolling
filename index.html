@@ -53,21 +53,21 @@
      본 스크립트가 정상으로 시작하면 window.__ledOk = true 로 표시해 이 예약이 무시됨 */
   setTimeout(function () { if (!window.__ledOk) location.reload(); }, 2 * 60 * 1000);
 </script>
-<script src="slides.js?v=20261116-2"></script>
-<script src="demo-data.js?v=20261116-2"></script>
-<script src="assets.js?v=20261116-2"></script>
-<script src="board.js?v=20261116-2"></script>
-<script src="layouts.js?v=20261116-2"></script>
-<script src="slide-stores.js?v=20261116-2"></script>
-<script src="slides-board.js?v=20261116-2"></script>
-<script src="slides-revenue.js?v=20261116-2"></script>
+<script src="slides.js?v=20261117-3"></script>
+<script src="demo-data.js?v=20261117-3"></script>
+<script src="assets.js?v=20261117-3"></script>
+<script src="board.js?v=20261117-3"></script>
+<script src="layouts.js?v=20261117-3"></script>
+<script src="slide-stores.js?v=20261117-3"></script>
+<script src="slides-board.js?v=20261117-3"></script>
+<script src="slides-revenue.js?v=20261117-3"></script>
 <script>
   /* 데이터 출처
      1) Firebase 실시간 DB(FB_URL)가 있으면: 설정·지표를 실시간 스트림으로 받음 → 관리자 저장 1~2초 뒤 반영. 끊기면 15초마다 다시 읽음
      2) 없으면 GitHub: config.json 은 GitHub API(ETag 조건부, 90초, 네트워크당 시간당 60회 한도 → 임박하면 raw로), data.json 은 raw(5분 캐시)
      업로드 이미지는 항상 GitHub raw(uploads/…, 파일 이름이 매번 새로 생겨 캐시 영향 없음)
      GitHub가 아닌 곳(내 PC 시험)에서 열면 같은 폴더의 파일을 읽음. 시험용: ?fb=<주소> 로 Firebase 주소를 바꿔 넣을 수 있음 */
-  const BUILD = '20261116-2';   // 파일을 고쳐 올릴 때마다 바꿈(위 <script src=…?v=> 와 같은 값). 송출 화면이 10분마다 확인해 바뀌었으면 스스로 새로고침
+  const BUILD = '20261117-3';   // 파일을 고쳐 올릴 때마다 바꿈(위 <script src=…?v=> 와 같은 값). 송출 화면이 10분마다 확인해 바뀌었으면 스스로 새로고침
   const P = new URLSearchParams(location.search);
   /* 송출 채널: index.html = 카페테리아 LED(3400×1000), ?ch=tv = 사무실 TV, (1920×1080), ?ch=tv2 = 카페테리아 세로 TV, ?ch=tv3 = 스낵바 세로 TV (1080×1920). 등록부는 slides.js */
   const CH = window.CHANNELS[P.get('ch')] ? P.get('ch') : 'led';
@@ -168,9 +168,18 @@
     es.onerror = () => { fbLive = false; };    // 브라우저가 알아서 다시 연결함. 그동안은 15초 폴링
   }
 
+  /* 화면 회전 — 스낵바 세로 TV(tv3)만. 이 TV는 회전 기능이 없어 화면이 가로로 나오므로 시계 방향 90도로 돌려 꽉 채움.
+     다른 채널(카페테리아 세로 TV 포함)은 회전하지 않음. 스낵바에서 주소 뒤 ?rotate=270 반대 방향, ?rotate=0 끄기 */
+  const ROT_Q = P.get('rotate');
+  function rotDeg() {
+    if (CH !== 'tv3') return 0;
+    if (ROT_Q === '0' || ROT_Q === '90' || ROT_Q === '180' || ROT_Q === '270') return +ROT_Q;
+    return innerWidth > innerHeight ? 90 : 0;
+  }
   function fit() {
-    const s = Math.min(innerWidth / W, innerHeight / H);
-    document.getElementById('stage').style.transform = 'translate(-50%,-50%) scale(' + s + ')';
+    const deg = rotDeg(), side = deg === 90 || deg === 270;
+    const s = side ? Math.min(innerWidth / H, innerHeight / W) : Math.min(innerWidth / W, innerHeight / H);
+    document.getElementById('stage').style.transform = 'translate(-50%,-50%)' + (deg ? ' rotate(' + deg + 'deg)' : '') + ' scale(' + s + ')';
   }
   addEventListener('resize', fit); fit();
 
