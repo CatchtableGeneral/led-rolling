@@ -7,7 +7,8 @@
      tv2 : 카페테리아 세로 TV (1080×1920 세로, 기본 화면 없음 · 올린 이미지만) → index.html?ch=tv2
      tv3 : 스낵바 세로 TV     (1080×1920 세로, 기본 화면 없음 · 올린 이미지만) → index.html?ch=tv3
      tv4 : 판교사무실B 출입구 (TV 2대를 가로로 이어 붙인 3840×1080, 기본 화면 없음 · 올린 이미지·영상) → index.html?ch=tv4
-           video:true 인 채널만 영상(MP4·WEBM)을 올릴 수 있음. 영상은 소리 없이 끝까지 재생된 뒤 다음 화면으로 넘어감
+           video:true 인 채널만 영상(MP4·WEBM, 30MB)과 유튜브 링크(type:'youtube', 용량 제한 없음)를 넣을 수 있음.
+           영상·유튜브는 소리 없이 끝까지 재생된 뒤 다음 화면으로 넘어감
            켜진 이미지가 하나도 없으면 송출 화면에는 검은 바탕에 로고(대기 화면)가 나옵니다.
            이름·크기는 아래 name/desc/w/h/ratio 만 바꾸면 됩니다(Code.gs 의 CHANNELS_ 와 id 를 맞출 것).
    기본 슬라이드를 추가할 때: 해당 채널 slides 에 한 줄 추가 + index.html 에 그리는 코드 추가.
@@ -73,6 +74,9 @@ window.normalizeConfig = function (cfg, ch) {
       const vid = s.type === 'video';   // 영상: sec = 영상 길이(초). 송출 화면은 끝까지 재생된 뒤 넘어감
       out.push({ id: s.id, type: s.type, name: String(s.name || (vid ? '업로드 영상' : '업로드 이미지')), file: String(s.file),
         start: dateOk(s.start), end: dateOk(s.end), on: s.on === true, sec: vid ? Math.max(1, Math.min(3600, +s.sec || 30)) : Math.max(3, +s.sec || 12) });
+    } else if (s.type === 'youtube' && /^[A-Za-z0-9_-]{11}$/.test(String(s.yt || ''))) {   // 유튜브(일부 공개) 링크: 파일 없이 영상 ID 만. sec = 영상 길이
+      out.push({ id: s.id, type: 'youtube', name: String(s.name || '유튜브 영상'), yt: String(s.yt),
+        start: dateOk(s.start), end: dateOk(s.end), on: s.on === true, sec: Math.max(1, Math.min(14400, +s.sec || 60)) });
     }
   });
   known.forEach(base => out.push({ id: base.id, on: true, sec: base.sec }));
