@@ -6,7 +6,7 @@
            내용이 바뀌면 같은 이름의 파일을 1920×1080 PNG로 바꿔 올리면 됩니다.
      tv2 : 카페테리아 세로 TV (1080×1920 세로, 기본 화면 없음 · 올린 이미지만) → index.html?ch=tv2
      tv3 : 스낵바 세로 TV     (1080×1920 세로, 기본 화면 없음 · 올린 이미지만) → index.html?ch=tv3
-     tv4 : 판교사무실B 출입구 (TV 2대를 가로로 이어 붙인 3840×1080, 기본 화면 없음 · 올린 이미지·영상) → index.html?ch=tv4
+     tv4 : 판교사무실B-라운지TV (TV 2대를 가로로 이어 붙인 3840×1080, 기본 화면 없음 · 올린 이미지·영상) → index.html?ch=tv4
            video:true 인 채널만 영상(MP4·WEBM, 30MB)과 유튜브 링크(type:'youtube', 용량 제한 없음)를 넣을 수 있음.
            영상·유튜브는 소리 없이 끝까지 재생된 뒤 다음 화면으로 넘어감
            켜진 이미지가 하나도 없으면 송출 화면에는 검은 바탕에 로고(대기 화면)가 나옵니다.
@@ -48,10 +48,18 @@ window.CHANNELS = {
   },
   tv2: { name: '카페테리아 세로 TV', desc: '카페테리아 세로 TV', w: 1080, h: 1920, ratio: '9:16 세로', cfgKey: 'tv2config', slides: [] },
   tv3: { name: '스낵바 세로 TV', desc: '스낵바 세로 TV', w: 1080, h: 1920, ratio: '9:16 세로', cfgKey: 'tv3config', slides: [] },
-  tv4: { name: '판교사무실B 출입구', desc: '판교사무실B 출입구 TV 2대(가로로 이어 붙임)', w: 3840, h: 1080, ratio: '32:9 (TV 2대)', cfgKey: 'tv4config', video: true, slides: [] },
+  tv4: { name: '판교사무실B-라운지TV', desc: '판교사무실B 라운지 TV 2대(가로로 이어 붙임)', w: 3840, h: 1080, ratio: '32:9 (TV 2대)', cfgKey: 'tv4config', video: true, slides: [] },
 };
 window.chanOf = function (ch) { return window.CHANNELS[ch] || window.CHANNELS.led; };
 window.SLIDES = window.CHANNELS.led.slides;   // 이전 코드 호환(LED 기본 슬라이드 목록)
+
+/* 송출 시간(모든 송출 화면 공통): 이 시간에만 순환 송출, 그 밖의 시간과 주말엔 검은 바탕 로고(대기 화면)만.
+   한국 시간 기준. days: 0=일 1=월 … 6=토 / from 이상 to 미만(시). 바꾸려면 이 줄만 고치면 됨(slides.js 와 Admin 둘 다) */
+window.ON_AIR = { days: [1, 2, 3, 4, 5], from: 8, to: 23, label: '평일 08:00~23:00' };
+window.onAir = function (ms) {
+  const k = new Date((ms || Date.now()) + 9 * 3600 * 1000), h = k.getUTCHours() + k.getUTCMinutes() / 60;   // 한국 시간
+  return window.ON_AIR.days.indexOf(k.getUTCDay()) >= 0 && h >= window.ON_AIR.from && h < window.ON_AIR.to;
+};
 
 window.todayStr = function () {
   const d = new Date(), p = n => String(n).padStart(2, '0');
