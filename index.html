@@ -18,7 +18,7 @@
   .slide { position:absolute; inset:0; background:#102D35; opacity:0; transition:opacity .8s ease; }
   .slide.on { opacity:1; }
   .slide.custom { background:#000; }
-  .slide.custom img, .slide.pic img { display:block; width:100%; height:100%; object-fit:contain; }
+  .slide.custom img, .slide.custom video, .slide.pic img { display:block; width:100%; height:100%; object-fit:contain; background:#000; }
   .slide.pic { background:#000; }
   .slide.standby { background:#000; display:flex; align-items:center; justify-content:center; }
   .slide.standby img { width:18%; opacity:.55; }
@@ -53,23 +53,23 @@
      본 스크립트가 정상으로 시작하면 window.__ledOk = true 로 표시해 이 예약이 무시됨 */
   setTimeout(function () { if (!window.__ledOk) location.reload(); }, 2 * 60 * 1000);
 </script>
-<script src="slides.js?v=20261117-3"></script>
-<script src="demo-data.js?v=20261117-3"></script>
-<script src="assets.js?v=20261117-3"></script>
-<script src="board.js?v=20261117-3"></script>
-<script src="layouts.js?v=20261117-3"></script>
-<script src="slide-stores.js?v=20261117-3"></script>
-<script src="slides-board.js?v=20261117-3"></script>
-<script src="slides-revenue.js?v=20261117-3"></script>
+<script src="slides.js?v=20261117-5"></script>
+<script src="demo-data.js?v=20261117-5"></script>
+<script src="assets.js?v=20261117-5"></script>
+<script src="board.js?v=20261117-5"></script>
+<script src="layouts.js?v=20261117-5"></script>
+<script src="slide-stores.js?v=20261117-5"></script>
+<script src="slides-board.js?v=20261117-5"></script>
+<script src="slides-revenue.js?v=20261117-5"></script>
 <script>
   /* 데이터 출처
      1) Firebase 실시간 DB(FB_URL)가 있으면: 설정·지표를 실시간 스트림으로 받음 → 관리자 저장 1~2초 뒤 반영. 끊기면 15초마다 다시 읽음
      2) 없으면 GitHub: config.json 은 GitHub API(ETag 조건부, 90초, 네트워크당 시간당 60회 한도 → 임박하면 raw로), data.json 은 raw(5분 캐시)
      업로드 이미지는 항상 GitHub raw(uploads/…, 파일 이름이 매번 새로 생겨 캐시 영향 없음)
      GitHub가 아닌 곳(내 PC 시험)에서 열면 같은 폴더의 파일을 읽음. 시험용: ?fb=<주소> 로 Firebase 주소를 바꿔 넣을 수 있음 */
-  const BUILD = '20261117-3';   // 파일을 고쳐 올릴 때마다 바꿈(위 <script src=…?v=> 와 같은 값). 송출 화면이 10분마다 확인해 바뀌었으면 스스로 새로고침
+  const BUILD = '20261117-5';   // 파일을 고쳐 올릴 때마다 바꿈(위 <script src=…?v=> 와 같은 값). 송출 화면이 10분마다 확인해 바뀌었으면 스스로 새로고침
   const P = new URLSearchParams(location.search);
-  /* 송출 채널: index.html = 카페테리아 LED(3400×1000), ?ch=tv = 사무실 TV, (1920×1080), ?ch=tv2 = 카페테리아 세로 TV, ?ch=tv3 = 스낵바 세로 TV (1080×1920). 등록부는 slides.js */
+  /* 송출 채널: index.html = 카페테리아 LED(3400×1000), ?ch=tv = 사무실 TV, (1920×1080), ?ch=tv2 = 카페테리아 세로 TV, ?ch=tv3 = 스낵바 세로 TV (1080×1920), ?ch=tv4 = 판교사무실B 출입구 (TV 2대, 3840×1080, 영상 가능). 등록부는 slides.js */
   const CH = window.CHANNELS[P.get('ch')] ? P.get('ch') : 'led';
   const CHAN = window.CHANNELS[CH], W = CHAN.w, H = CHAN.h, CFG_FILE = CHAN.cfgKey + '.json', CFG_CACHE = CH + '_config_cache';
   document.getElementById('stage').style.setProperty('--w', W + 'px');
@@ -218,19 +218,44 @@
   let active = [], key = '', pos = 0, timer = null;
   const secEls = () => [...document.querySelectorAll('.slide')];
 
-  function show(id) { secEls().forEach(e => e.classList.toggle('on', e.dataset.id === id)); }
+  /* 꺼지는 화면의 영상은 멈춤 */
+  function show(id) {
+    secEls().forEach(e => {
+      const on = e.dataset.id === id; e.classList.toggle('on', on);
+      const v = !on && e.querySelector('video'); if (v && !v.paused) v.pause();
+    });
+  }
+  const next = () => { pos++; step(); };
+  const vidOf = id => { const e = document.querySelector('.slide[data-id="' + id + '"]'); return e && e.querySelector('video'); };
+  /* 이미지는 노출 시간(sec)만큼, 영상은 끝까지 재생한 뒤 다음 화면. 켜진 게 영상 하나뿐이면 반복 재생.
+     설정이 바뀌어 다시 불려도 지금 재생 중인 영상은 처음으로 되감지 않음. 영상이 멈추거나 재생이 막히면 안전 타이머로 넘어감 */
   function step() {
     if (!active.length) return;
     pos = pos % active.length;
-    show(active[pos].id);
+    const cur = active[pos];
+    show(cur.id);
     clearTimeout(timer);
-    if (active.length > 1) timer = setTimeout(() => { pos++; step(); }, active[pos].sec * 1000);
+    const v = vidOf(cur.id);
+    if (v) {
+      const loop = active.length === 1;
+      v.loop = loop; v.onended = null;
+      if (v.paused || v.ended) { try { v.currentTime = 0; } catch (e) {} }
+      const p = v.play();
+      if (loop) { if (p && p.catch) p.catch(() => { timer = setTimeout(step, 5000); }); return; }
+      v.onended = () => { if (active[pos] && active[pos].id === cur.id) next(); };
+      if (p && p.catch) p.catch(() => { clearTimeout(timer); timer = setTimeout(next, 3000); });
+      const d = isFinite(v.duration) && v.duration > 0 ? v.duration : (+cur.sec || 60);
+      timer = setTimeout(next, (d + 20) * 1000);
+      return;
+    }
+    if (active.length > 1) timer = setTimeout(next, cur.sec * 1000);
   }
 
   /* 업로드 이미지: 파일을 받아 오면 슬라이드 요소를 만들고, 받아 오기 전에는 순환에서 제외.
      방금 올린 파일은 올린 지 25초가 지난 뒤에 처음 받음 — GitHub(raw)는 아직 없는 파일에 대한 '없음' 응답을 5분간 기억하므로
      너무 일찍 받으면 그 5분 동안 계속 실패함(단독 송출을 눌러도 안 나오던 원인). 그래도 실패하면 주소 형태를 바꿔 가며(raw 2종 + Pages) 10초마다 다시 시도 */
-  const assets = new Map();   // 이미지 경로 -> 받은 주소 | 'loading' | 'fail'
+  const assets = new Map();   // 이미지·영상 경로 -> 받은 주소 | 'loading' | 'fail'
+  const isVid = f => /\.(mp4|webm)$/i.test(f);   // 영상은 한 번 통째로 받아 PC 메모리에서 반복 재생(매번 다시 내려받지 않게)
   const tries = new Map();    // 이미지 경로 -> 시도 횟수
   const RAW_ALT = ON_GITHUB ? `https://raw.githubusercontent.com/${REPO}/refs/heads/${BRANCH}/` : '';
   const PAGES = ON_GITHUB ? location.href.replace(/[#?].*$/, '').replace(/[^/]*$/, '') : '';
@@ -241,13 +266,20 @@
     const n = tries.get(file) || 0; tries.set(file, n + 1);
     const bases = ON_GITHUB ? [RAW, RAW_ALT, PAGES] : [''];
     const url = bases[n % bases.length] + file;
+    const fail = () => {
+      assets.set(file, 'fail'); applyConfig(curCfg);
+      setTimeout(() => { if (assets.get(file) === 'fail') { assets.delete(file); applyConfig(curCfg); } }, n < 12 ? 10 * 1000 : 60 * 1000);
+    };
     const go = () => {
+      if (isVid(file)) {
+        fetch(url, { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); })
+          .then(b => { if (!b.size) throw new Error('empty'); assets.set(file, URL.createObjectURL(b)); applyConfig(curCfg); })
+          .catch(fail);
+        return;
+      }
       const im = new Image();
       im.onload = () => { assets.set(file, url); applyConfig(curCfg); };
-      im.onerror = () => {
-        assets.set(file, 'fail'); applyConfig(curCfg);
-        setTimeout(() => { if (assets.get(file) === 'fail') { assets.delete(file); applyConfig(curCfg); } }, n < 12 ? 10 * 1000 : 60 * 1000);
-      };
+      im.onerror = fail;
       im.src = url;
     };
     const wait = n === 0 ? Math.min(25 * 1000, Math.max(0, 25 * 1000 - fileAge(file))) : 0;
@@ -257,13 +289,20 @@
 
   function syncCustomSections(customs) {
     const ids = new Set(customs.map(c => c.id));
-    secEls().filter(e => e.classList.contains('custom') && !ids.has(e.dataset.id)).forEach(e => e.remove());
+    const files = new Set(customs.map(c => c.file));
+    secEls().filter(e => e.classList.contains('custom') && !ids.has(e.dataset.id)).forEach(e => {
+      const v = e.querySelector('video'); if (v) v.pause();
+      e.remove();
+    });
+    assets.forEach((u, f) => { if (isVid(f) && !files.has(f) && /^blob:/.test(u)) { URL.revokeObjectURL(u); assets.delete(f); } });   // 목록에서 빠진 영상은 메모리에서 비움
     customs.forEach(c => {
       if (!assetReady(c.file) || document.querySelector('.slide[data-id="' + c.id + '"]')) return;
       const sec = document.createElement('section');
       sec.className = 'slide custom'; sec.dataset.id = c.id;
-      const img = document.createElement('img'); img.src = assets.get(c.file);
-      img.onerror = () => { sec.remove(); assets.delete(c.file); setTimeout(() => applyConfig(curCfg), 20 * 1000); };  // 표시 중 실패하면 빼고 다시 시도
+      const vid = isVid(c.file), img = document.createElement(vid ? 'video' : 'img');
+      if (vid) { img.muted = true; img.defaultMuted = true; img.playsInline = true; img.preload = 'auto'; img.setAttribute('muted', ''); }   // 소리 없이(자동 재생 조건)
+      img.src = assets.get(c.file);
+      img.onerror = () => { sec.remove(); if (!vid) assets.delete(c.file); setTimeout(() => applyConfig(curCfg), 20 * 1000); };  // 표시 중 실패하면 빼고 다시 시도
       sec.appendChild(img);
       document.getElementById('stage').appendChild(sec);
     });
@@ -283,7 +322,7 @@
     applyConfig(cfg);
   }
   let curCfg = null;
-  /* 대기 화면: 검은 바탕에 로고만. 기본 화면이 없는 채널(세로 TV 2대)에서 켜 둔 이미지가 하나도 없을 때 */
+  /* 대기 화면: 검은 바탕에 로고만. 기본 화면이 없는 채널(세로 TV 2대·판교사무실B 출입구)에서 켜 둔 이미지·영상이 하나도 없을 때 */
   function standby() {
     if (document.querySelector('.slide[data-id="standby"]')) return;
     const sec = document.createElement('section'); sec.className = 'slide standby'; sec.dataset.id = 'standby';
@@ -292,7 +331,7 @@
   }
   function applyConfig(cfg) {
     curCfg = cfg;
-    const customs = window.normalizeConfig(cfg, CH).slides.filter(s => s.type === 'image');
+    const customs = window.normalizeConfig(cfg, CH).slides.filter(s => s.type === 'image' || s.type === 'video');
     customs.forEach(c => loadAsset(c.file));
     syncCustomSections(customs);
     const want = window.pickActive(cfg, null, CH);
