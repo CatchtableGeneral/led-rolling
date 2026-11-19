@@ -6,6 +6,8 @@
            내용이 바뀌면 같은 이름의 파일을 1920×1080 PNG로 바꿔 올리면 됩니다.
      tv2 : 카페테리아 세로 TV (1080×1920 세로, 기본 화면 없음 · 올린 이미지만) → index.html?ch=tv2
      tv3 : 스낵바 세로 TV     (1080×1920 세로, 기본 화면 없음 · 올린 이미지만) → index.html?ch=tv3
+     tv4 : 판교사무실B 출입구 (TV 2대를 가로로 이어 붙인 3840×1080, 기본 화면 없음 · 올린 이미지·영상) → index.html?ch=tv4
+           video:true 인 채널만 영상(MP4·WEBM)을 올릴 수 있음. 영상은 소리 없이 끝까지 재생된 뒤 다음 화면으로 넘어감
            켜진 이미지가 하나도 없으면 송출 화면에는 검은 바탕에 로고(대기 화면)가 나옵니다.
            이름·크기는 아래 name/desc/w/h/ratio 만 바꾸면 됩니다(Code.gs 의 CHANNELS_ 와 id 를 맞출 것).
    기본 슬라이드를 추가할 때: 해당 채널 slides 에 한 줄 추가 + index.html 에 그리는 코드 추가.
@@ -45,6 +47,7 @@ window.CHANNELS = {
   },
   tv2: { name: '카페테리아 세로 TV', desc: '카페테리아 세로 TV', w: 1080, h: 1920, ratio: '9:16 세로', cfgKey: 'tv2config', slides: [] },
   tv3: { name: '스낵바 세로 TV', desc: '스낵바 세로 TV', w: 1080, h: 1920, ratio: '9:16 세로', cfgKey: 'tv3config', slides: [] },
+  tv4: { name: '판교사무실B 출입구', desc: '판교사무실B 출입구 TV 2대(가로로 이어 붙임)', w: 3840, h: 1080, ratio: '32:9 (TV 2대)', cfgKey: 'tv4config', video: true, slides: [] },
 };
 window.chanOf = function (ch) { return window.CHANNELS[ch] || window.CHANNELS.led; };
 window.SLIDES = window.CHANNELS.led.slides;   // 이전 코드 호환(LED 기본 슬라이드 목록)
@@ -56,7 +59,7 @@ window.todayStr = function () {
 const dateOk = s => (typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s)) ? s : '';
 
 /* 저장된 설정을 정리(채널 기준): 등록부에 없는 기본 슬라이드는 제거, 새 기본 슬라이드는 맨 뒤에 ON으로 추가,
-   업로드 이미지(type:'image')는 그대로 유지. 이미지는 켜 두지 않은 한 OFF */
+   업로드 이미지·영상(type:'image'|'video')은 그대로 유지. 켜 두지 않은 한 OFF */
 window.normalizeConfig = function (cfg, ch) {
   const saved = (cfg && Array.isArray(cfg.slides)) ? cfg.slides : [];
   const known = new Map(window.chanOf(ch).slides.map(s => [s.id, s]));
@@ -66,9 +69,10 @@ window.normalizeConfig = function (cfg, ch) {
     if (base) {
       out.push({ id: s.id, on: s.on !== false, sec: Math.max(3, +s.sec || base.sec) });
       known.delete(s.id);
-    } else if (s.type === 'image' && s.file) {
-      out.push({ id: s.id, type: 'image', name: String(s.name || '업로드 이미지'), file: String(s.file),
-        start: dateOk(s.start), end: dateOk(s.end), on: s.on === true, sec: Math.max(3, +s.sec || 12) });
+    } else if ((s.type === 'image' || s.type === 'video') && s.file) {
+      const vid = s.type === 'video';   // 영상: sec = 영상 길이(초). 송출 화면은 끝까지 재생된 뒤 넘어감
+      out.push({ id: s.id, type: s.type, name: String(s.name || (vid ? '업로드 영상' : '업로드 이미지')), file: String(s.file),
+        start: dateOk(s.start), end: dateOk(s.end), on: s.on === true, sec: vid ? Math.max(1, Math.min(3600, +s.sec || 30)) : Math.max(3, +s.sec || 12) });
     }
   });
   known.forEach(base => out.push({ id: base.id, on: true, sec: base.sec }));
