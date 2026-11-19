@@ -20,6 +20,9 @@
   .slide.custom { background:#000; }
   .slide.custom img, .slide.custom video, .slide.pic img { display:block; width:100%; height:100%; object-fit:contain; background:#000; }
   .slide.pic { background:#000; }
+  /* 유튜브: 화면 위에 투명 막을 덮어 마우스가 지나가도 유튜브 버튼·제목이 뜨지 않게 */
+  .slide.yt iframe { position:absolute; inset:0; width:100%; height:100%; border:0; pointer-events:none; }
+  .slide.yt .shield { position:absolute; inset:0; }
   .slide.standby { background:#000; display:flex; align-items:center; justify-content:center; }
   .slide.standby img { width:18%; opacity:.55; }
   #stage.tall .slide.standby img { width:40%; }   /* 세로 화면은 폭이 좁아 로고를 더 크게 */
@@ -53,21 +56,21 @@
      본 스크립트가 정상으로 시작하면 window.__ledOk = true 로 표시해 이 예약이 무시됨 */
   setTimeout(function () { if (!window.__ledOk) location.reload(); }, 2 * 60 * 1000);
 </script>
-<script src="slides.js?v=20261117-5"></script>
-<script src="demo-data.js?v=20261117-5"></script>
-<script src="assets.js?v=20261117-5"></script>
-<script src="board.js?v=20261117-5"></script>
-<script src="layouts.js?v=20261117-5"></script>
-<script src="slide-stores.js?v=20261117-5"></script>
-<script src="slides-board.js?v=20261117-5"></script>
-<script src="slides-revenue.js?v=20261117-5"></script>
+<script src="slides.js?v=20261119-1"></script>
+<script src="demo-data.js?v=20261119-1"></script>
+<script src="assets.js?v=20261119-1"></script>
+<script src="board.js?v=20261119-1"></script>
+<script src="layouts.js?v=20261119-1"></script>
+<script src="slide-stores.js?v=20261119-1"></script>
+<script src="slides-board.js?v=20261119-1"></script>
+<script src="slides-revenue.js?v=20261119-1"></script>
 <script>
   /* 데이터 출처
      1) Firebase 실시간 DB(FB_URL)가 있으면: 설정·지표를 실시간 스트림으로 받음 → 관리자 저장 1~2초 뒤 반영. 끊기면 15초마다 다시 읽음
      2) 없으면 GitHub: config.json 은 GitHub API(ETag 조건부, 90초, 네트워크당 시간당 60회 한도 → 임박하면 raw로), data.json 은 raw(5분 캐시)
      업로드 이미지는 항상 GitHub raw(uploads/…, 파일 이름이 매번 새로 생겨 캐시 영향 없음)
      GitHub가 아닌 곳(내 PC 시험)에서 열면 같은 폴더의 파일을 읽음. 시험용: ?fb=<주소> 로 Firebase 주소를 바꿔 넣을 수 있음 */
-  const BUILD = '20261117-5';   // 파일을 고쳐 올릴 때마다 바꿈(위 <script src=…?v=> 와 같은 값). 송출 화면이 10분마다 확인해 바뀌었으면 스스로 새로고침
+  const BUILD = '20261119-1';   // 파일을 고쳐 올릴 때마다 바꿈(위 <script src=…?v=> 와 같은 값). 송출 화면이 10분마다 확인해 바뀌었으면 스스로 새로고침
   const P = new URLSearchParams(location.search);
   /* 송출 채널: index.html = 카페테리아 LED(3400×1000), ?ch=tv = 사무실 TV, (1920×1080), ?ch=tv2 = 카페테리아 세로 TV, ?ch=tv3 = 스낵바 세로 TV (1080×1920), ?ch=tv4 = 판교사무실B 출입구 (TV 2대, 3840×1080, 영상 가능). 등록부는 slides.js */
   const CH = window.CHANNELS[P.get('ch')] ? P.get('ch') : 'led';
@@ -224,6 +227,7 @@
       const on = e.dataset.id === id; e.classList.toggle('on', on);
       const v = !on && e.querySelector('video'); if (v && !v.paused) v.pause();
     });
+    ytPlayers.forEach((p, k) => { if (k !== id) { try { if (p.getPlayerState() === 1 || p.getPlayerState() === 3) p.pauseVideo(); } catch (x) {} } });
   }
   const next = () => { pos++; step(); };
   const vidOf = id => { const e = document.querySelector('.slide[data-id="' + id + '"]'); return e && e.querySelector('video'); };
@@ -235,6 +239,16 @@
     const cur = active[pos];
     show(cur.id);
     clearTimeout(timer);
+    const yp = cur.type === 'youtube' && ytPlayers.get(cur.id);
+    if (yp) {   // 유튜브: 재생 중이 아니면 처음부터. 끝은 ytEnded 가 처리(하나뿐이면 반복). 안전 타이머는 길이+30초(버퍼링 여유)
+      try {
+        const st = yp.getPlayerState();
+        if (st !== 1 && st !== 3) yp.seekTo(0, true);
+        yp.mute(); yp.playVideo();
+      } catch (x) {}
+      if (active.length > 1) { let d = 0; try { d = yp.getDuration(); } catch (x) {} timer = setTimeout(next, ((d > 1 ? d : +cur.sec || 600) + 30) * 1000); }
+      return;
+    }
     const v = vidOf(cur.id);
     if (v) {
       const loop = active.length === 1;
@@ -287,15 +301,74 @@
   }
   const assetReady = f => { const v = assets.get(f); return v && v !== 'loading' && v !== 'fail'; };
 
+  /* 유튜브(일부 공개) 링크: 유튜브 플레이어를 미리 만들어 두고(소리 없음·버튼 없음), 준비되면 순환에 넣음.
+     끝나기 직전(0.8초 전)에 다음으로 넘겨 유튜브의 '추천 영상' 화면이 보이지 않게 함. 재생할 수 없는 영상이면 빼고 1분 뒤 다시 시도 */
+  const ytKey = s => 'yt:' + s.id;
+  const ytPlayers = new Map();   // 슬라이드 id -> YT.Player
+  let ytApi = null, ytLastEnd = 0;
+  function ytLoadApi() {
+    if (!ytApi) ytApi = new Promise((res, rej) => {
+      if (window.YT && window.YT.Player) return res();
+      const prev = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => { if (prev) try { prev(); } catch (x) {} res(); };
+      const sc = document.createElement('script'); sc.src = 'https://www.youtube.com/iframe_api';
+      sc.onerror = () => { ytApi = null; sc.remove(); rej(new Error('yt api')); };
+      document.head.appendChild(sc);
+    });
+    return ytApi;
+  }
+  function ytDrop(id) {
+    const p = ytPlayers.get(id); if (p) { try { p.destroy(); } catch (x) {} ytPlayers.delete(id); }
+    const e = document.querySelector('.slide[data-id="' + id + '"]'); if (e) e.remove();
+  }
+  function loadYT(c) {
+    const k = ytKey(c); if (assets.has(k)) return;
+    assets.set(k, 'loading');
+    const fail = () => {
+      ytDrop(c.id); assets.set(k, 'fail'); applyConfig(curCfg);
+      setTimeout(() => { if (assets.get(k) === 'fail') { assets.delete(k); applyConfig(curCfg); } }, 60 * 1000);
+    };
+    ytLoadApi().then(() => {
+      if (assets.get(k) !== 'loading') return;
+      const sec = document.createElement('section');
+      sec.className = 'slide custom yt'; sec.dataset.id = c.id;
+      const box = document.createElement('div'), shield = document.createElement('i'); shield.className = 'shield';
+      sec.appendChild(box); sec.appendChild(shield);
+      document.getElementById('stage').appendChild(sec);
+      const p = new YT.Player(box, {
+        videoId: c.yt, width: '100%', height: '100%',
+        playerVars: { autoplay: 0, controls: 0, mute: 1, playsinline: 1, rel: 0, modestbranding: 1, iv_load_policy: 3, disablekb: 1, fs: 0, cc_load_policy: 0, origin: location.origin },
+        events: {
+          onReady: () => { try { p.mute(); } catch (x) {} if (assets.get(k) === 'loading') { assets.set(k, 'ready'); applyConfig(curCfg); } },
+          onError: fail,
+          onStateChange: e => { if (e.data === 0) ytEnded(c.id); },
+        },
+      });
+      ytPlayers.set(c.id, p);
+    }).catch(fail);
+  }
+  function ytEnded(id) {
+    const cur = active[pos]; if (!cur || cur.id !== id || Date.now() - ytLastEnd < 1500) return;
+    ytLastEnd = Date.now();
+    if (active.length === 1) { const p = ytPlayers.get(id); try { p.seekTo(0, true); p.playVideo(); } catch (x) {} }
+    else next();
+  }
+  setInterval(() => {   // 끝나기 직전 감지(추천 영상 화면 방지)
+    const cur = active[pos]; if (!cur || cur.type !== 'youtube') return;
+    const p = ytPlayers.get(cur.id); if (!p || !p.getDuration) return;
+    try { const d = p.getDuration(), t = p.getCurrentTime(); if (d > 2 && p.getPlayerState() === 1 && t >= d - 0.8) ytEnded(cur.id); } catch (x) {}
+  }, 200);
+
   function syncCustomSections(customs) {
     const ids = new Set(customs.map(c => c.id));
     const files = new Set(customs.map(c => c.file));
     secEls().filter(e => e.classList.contains('custom') && !ids.has(e.dataset.id)).forEach(e => {
       const v = e.querySelector('video'); if (v) v.pause();
-      e.remove();
+      if (e.classList.contains('yt')) { assets.delete('yt:' + e.dataset.id); ytDrop(e.dataset.id); } else e.remove();
     });
     assets.forEach((u, f) => { if (isVid(f) && !files.has(f) && /^blob:/.test(u)) { URL.revokeObjectURL(u); assets.delete(f); } });   // 목록에서 빠진 영상은 메모리에서 비움
     customs.forEach(c => {
+      if (c.type === 'youtube') return;   // 유튜브 화면은 loadYT 가 만듦
       if (!assetReady(c.file) || document.querySelector('.slide[data-id="' + c.id + '"]')) return;
       const sec = document.createElement('section');
       sec.className = 'slide custom'; sec.dataset.id = c.id;
@@ -331,11 +404,11 @@
   }
   function applyConfig(cfg) {
     curCfg = cfg;
-    const customs = window.normalizeConfig(cfg, CH).slides.filter(s => s.type === 'image' || s.type === 'video');
-    customs.forEach(c => loadAsset(c.file));
+    const customs = window.normalizeConfig(cfg, CH).slides.filter(s => s.type === 'image' || s.type === 'video' || s.type === 'youtube');
+    customs.forEach(c => { if (c.type === 'youtube') loadYT(c); else loadAsset(c.file); });
     syncCustomSections(customs);
     const want = window.pickActive(cfg, null, CH);
-    let next = want.filter(a => !a.type || assetReady(a.file));
+    let next = want.filter(a => !a.type || assetReady(a.type === 'youtube' ? ytKey(a) : a.file));
     if (!want.length) { standby(); next = [{ id: 'standby', sec: 3600 }]; }   // 켜진 화면이 하나도 없음(기본 화면 없는 채널) → 대기 화면
     else if (!next.length) return;     // 받아 오는 중이면 지금 화면 유지
     const k = JSON.stringify(next);
