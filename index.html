@@ -56,21 +56,21 @@
      본 스크립트가 정상으로 시작하면 window.__ledOk = true 로 표시해 이 예약이 무시됨 */
   setTimeout(function () { if (!window.__ledOk) location.reload(); }, 2 * 60 * 1000);
 </script>
-<script src="slides.js?v=20261119-1"></script>
-<script src="demo-data.js?v=20261119-1"></script>
-<script src="assets.js?v=20261119-1"></script>
-<script src="board.js?v=20261119-1"></script>
-<script src="layouts.js?v=20261119-1"></script>
-<script src="slide-stores.js?v=20261119-1"></script>
-<script src="slides-board.js?v=20261119-1"></script>
-<script src="slides-revenue.js?v=20261119-1"></script>
+<script src="slides.js?v=20261119-2"></script>
+<script src="demo-data.js?v=20261119-2"></script>
+<script src="assets.js?v=20261119-2"></script>
+<script src="board.js?v=20261119-2"></script>
+<script src="layouts.js?v=20261119-2"></script>
+<script src="slide-stores.js?v=20261119-2"></script>
+<script src="slides-board.js?v=20261119-2"></script>
+<script src="slides-revenue.js?v=20261119-2"></script>
 <script>
   /* 데이터 출처
      1) Firebase 실시간 DB(FB_URL)가 있으면: 설정·지표를 실시간 스트림으로 받음 → 관리자 저장 1~2초 뒤 반영. 끊기면 15초마다 다시 읽음
      2) 없으면 GitHub: config.json 은 GitHub API(ETag 조건부, 90초, 네트워크당 시간당 60회 한도 → 임박하면 raw로), data.json 은 raw(5분 캐시)
      업로드 이미지는 항상 GitHub raw(uploads/…, 파일 이름이 매번 새로 생겨 캐시 영향 없음)
      GitHub가 아닌 곳(내 PC 시험)에서 열면 같은 폴더의 파일을 읽음. 시험용: ?fb=<주소> 로 Firebase 주소를 바꿔 넣을 수 있음 */
-  const BUILD = '20261119-1';   // 파일을 고쳐 올릴 때마다 바꿈(위 <script src=…?v=> 와 같은 값). 송출 화면이 10분마다 확인해 바뀌었으면 스스로 새로고침
+  const BUILD = '20261119-2';   // 파일을 고쳐 올릴 때마다 바꿈(위 <script src=…?v=> 와 같은 값). 송출 화면이 10분마다 확인해 바뀌었으면 스스로 새로고침
   const P = new URLSearchParams(location.search);
   /* 송출 채널: index.html = 카페테리아 LED(3400×1000), ?ch=tv = 사무실 TV, (1920×1080), ?ch=tv2 = 카페테리아 세로 TV, ?ch=tv3 = 스낵바 세로 TV (1080×1920), ?ch=tv4 = 판교사무실B 출입구 (TV 2대, 3840×1080, 영상 가능). 등록부는 slides.js */
   const CH = window.CHANNELS[P.get('ch')] ? P.get('ch') : 'led';
@@ -341,7 +341,10 @@
         events: {
           onReady: () => { try { p.mute(); } catch (x) {} if (assets.get(k) === 'loading') { assets.set(k, 'ready'); applyConfig(curCfg); } },
           onError: fail,
-          onStateChange: e => { if (e.data === 0) ytEnded(c.id); },
+          onStateChange: e => {
+            if (e.data === 1) { try { p.unloadModule('captions'); p.unloadModule('cc'); } catch (x) {} }   // 소리 없이 틀면 유튜브가 자동 자막(CC)을 켜는 경우가 있어 끔
+            if (e.data === 0) ytEnded(c.id);
+          },
         },
       });
       ytPlayers.set(c.id, p);
