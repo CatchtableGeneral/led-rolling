@@ -57,21 +57,21 @@
      본 스크립트가 정상으로 시작하면 window.__ledOk = true 로 표시해 이 예약이 무시됨 */
   setTimeout(function () { if (!window.__ledOk) location.reload(); }, 2 * 60 * 1000);
 </script>
-<script src="slides.js?v=20261123-1"></script>
-<script src="demo-data.js?v=20261123-1"></script>
-<script src="assets.js?v=20261123-1"></script>
-<script src="board.js?v=20261123-1"></script>
-<script src="layouts.js?v=20261123-1"></script>
-<script src="slide-stores.js?v=20261123-1"></script>
-<script src="slides-board.js?v=20261123-1"></script>
-<script src="slides-revenue.js?v=20261123-1"></script>
+<script src="slides.js?v=20261125-2"></script>
+<script src="demo-data.js?v=20261125-2"></script>
+<script src="assets.js?v=20261125-2"></script>
+<script src="board.js?v=20261125-2"></script>
+<script src="layouts.js?v=20261125-2"></script>
+<script src="slide-stores.js?v=20261125-2"></script>
+<script src="slides-board.js?v=20261125-2"></script>
+<script src="slides-revenue.js?v=20261125-2"></script>
 <script>
   /* 데이터 출처
      1) Firebase 실시간 DB(FB_URL)가 있으면: 설정·지표를 실시간 스트림으로 받음 → 관리자 저장 1~2초 뒤 반영. 끊기면 15초마다 다시 읽음
      2) 없으면 GitHub: config.json 은 GitHub API(ETag 조건부, 90초, 네트워크당 시간당 60회 한도 → 임박하면 raw로), data.json 은 raw(5분 캐시)
      업로드 이미지는 항상 GitHub raw(uploads/…, 파일 이름이 매번 새로 생겨 캐시 영향 없음)
      GitHub가 아닌 곳(내 PC 시험)에서 열면 같은 폴더의 파일을 읽음. 시험용: ?fb=<주소> 로 Firebase 주소를 바꿔 넣을 수 있음 */
-  const BUILD = '20261123-1';   // 파일을 고쳐 올릴 때마다 바꿈(위 <script src=…?v=> 와 같은 값). 송출 화면이 10분마다 확인해 바뀌었으면 스스로 새로고침
+  const BUILD = '20261125-2';   // 파일을 고쳐 올릴 때마다 바꿈(위 <script src=…?v=> 와 같은 값). 송출 화면이 10분마다 확인해 바뀌었으면 스스로 새로고침
   const P = new URLSearchParams(location.search);
   /* 송출 채널: index.html = 카페테리아 LED(3400×1000), ?ch=tv = 사무실 TV, (1920×1080), ?ch=tv2 = 카페테리아 세로 TV, ?ch=tv3 = 스낵바 세로 TV (1080×1920), ?ch=tv4 = 판교사무실B-라운지TV (TV 2대, 3840×1080, 영상 가능). 등록부는 slides.js */
   const CH = window.CHANNELS[P.get('ch')] ? P.get('ch') : 'led';
@@ -185,10 +185,15 @@
   /* 화면 회전 — 스낵바 세로 TV(tv3)만. 이 TV는 회전 기능이 없어 화면이 가로로 나오므로 시계 방향 90도로 돌려 꽉 채움.
      다른 채널(카페테리아 세로 TV 포함)은 회전하지 않음. 스낵바에서 주소 뒤 ?rotate=270 반대 방향, ?rotate=0 끄기 */
   const ROT_Q = P.get('rotate');
+  /* 화면 크기: 스낵바(tv3)는 실제로 화면을 배치하는 크기(clientWidth/Height)를 씀. TV가 꺼졌다 켜진 뒤 창 크기 정보(innerWidth)만
+     예전 값으로 남으면, 가운데 위치는 새 크기·확대 배율은 옛 크기로 계산돼 가운데 기준으로 확대돼 보였음(2026-11-25 약 1.6배).
+     둘은 평소 같은 값이라 정상일 때는 차이 없음. 다른 채널은 기존 그대로 */
+  const viewW = () => (CH === 'tv3' && document.documentElement.clientWidth) || innerWidth;
+  const viewH = () => (CH === 'tv3' && document.documentElement.clientHeight) || innerHeight;
   function rotDeg() {
     if (CH !== 'tv3') return 0;
     if (ROT_Q === '0' || ROT_Q === '90' || ROT_Q === '180' || ROT_Q === '270') return +ROT_Q;
-    return innerWidth > innerHeight ? 90 : 0;
+    return viewW() > viewH() ? 90 : 0;
   }
   /* 카페테리아 LED 비율 보정: 밤사이 PC 화면이 다시 켜지면 크롬 창(또는 창 크기 정보)이 화면보다 살짝 작아져
      왼쪽·아래가 어긋나고, 누가 클릭해야 돌아오던 문제. LED 에서만, 창이 화면의 95% 이상인데 화면과 다르면
@@ -206,13 +211,28 @@
   }
   function fit() {
     const deg = rotDeg(), side = deg === 90 || deg === 270, st = document.getElementById('stage');
-    const sb = screenBox(), vw = sb ? sb.w : innerWidth, vh = sb ? sb.h : innerHeight;
+    const sb = screenBox(), vw = sb ? sb.w : viewW(), vh = sb ? sb.h : viewH();
     const s = side ? Math.min(vw / H, vh / W) : Math.min(vw / W, vh / H);
     st.style.left = sb ? sb.cx + 'px' : ''; st.style.top = sb ? sb.cy + 'px' : '';
     st.style.transform = 'translate(-50%,-50%)' + (deg ? ' rotate(' + deg + 'deg)' : '') + ' scale(' + s + ')';
   }
   addEventListener('resize', fit); fit();
   if (FIT_SCREEN) setInterval(fit, 5000);   // 크기 변화 알림(resize)이 안 오는 경우까지 5초마다 다시 맞춤
+  /* 스낵바 세로 TV(tv3) 확대 방지·복구: 2026-11-25 화면이 가운데 기준 약 1.6배 확대돼 위·아래·양옆이 잘린 사례(TV 재시작으로 복구, 터치 없는 화면).
+     ①5초마다 실제 배치 크기(viewW/H)로 비율을 다시 맞춤(크기 변경 알림을 놓친 경우) ②트랙패드·Ctrl+휠 확대를 막음
+     ③그래도 브라우저가 확대돼 있으면 10초 안에 스스로 새로고침해 원래 크기로 */
+  if (CH === 'tv3' && !PREVIEW) {
+    document.documentElement.style.touchAction = 'none'; document.body.style.touchAction = 'none';
+    addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });   // Ctrl+휠·트랙패드 확대 막기
+    addEventListener('gesturestart', e => e.preventDefault());
+    let zoomed = 0;
+    setInterval(() => {
+      fit();
+      const z = window.visualViewport ? window.visualViewport.scale : 1;
+      zoomed = z > 1.01 ? zoomed + 1 : 0;
+      if (zoomed >= 2) location.reload();
+    }, 5000);
+  }
 
   /* 설정 읽기. 반환: 설정 객체 | null(저장된 설정 없음 → 기본) | undefined(바뀐 게 없음 → 지금 설정 유지) */
   let cfgEtag = '', cfgLast = null, apiPauseUntil = 0;
